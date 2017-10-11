@@ -13,3 +13,6 @@ The tools include:
 
 The tools were developed for DataFax 2014.x.x and should function with later versions.
 Only schemadiff will work with DataFax versions prior to 2014.0.0.
+
+These tools were created under contract to the Population Health Research Institute (PHRI) and
+they have graciously released them to the community as open source.
