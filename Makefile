@@ -13,5 +13,9 @@ clean:
 	cd 3rdparty/libxlsxwriter; make clean
 	rm -rf dist
 
-3rdparty/libxlsxwriter/lib/libxlsxwriter.a:
+3rdparty/libxlsxwriter/lib/libxlsxwriter.a: 3rdparty/libxlsxwriter/.git
 	cd 3rdparty/libxlsxwriter; make
+
+3rdparty/libxlsxwriter/.git:
+	git submodule init
+	git submodule update
