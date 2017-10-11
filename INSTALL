@@ -1,0 +1,46 @@
+This is the installation guide for the DataFax Toolkit
+
+Prerequisites:
+==============
+You must have a working Python 2.7 installation. For Redhat/Centos you can use
+the Redhat Software Collections Library (SCL). See
+
+	https://www.softwarecollections.org/en/scls/rhscl/python27/
+
+for more details on how to install this.
+
+You'll need the following Python modules installed:
+
+	pillow (https://python-pillow.org/)
+	reportlab (http://www.reportlab.com/)
+	pdfrw (https://github.com/pmaupin/pdfrw)
+	xlsxwriter (http://xlsxwriter.readthedocs.io/)
+
+These can be installed using:
+
+	pip install pillow
+	pip install reportlab
+	pip install pdfrw
+	pip install xlsxwriter
+
+(Make sure you use the python 2.7 version of pip)
+
+You'll also need a copy of 'gcc' and the rest of the software build tools.
+
+Installation
+============
+Build the software by typing:
+
+	make
+
+This will create a dist directory with modules, PHRI and reports subdirectories.
+Install the 'datafax' python module by typing:
+
+	pip install dist/modules/datafax-1.0.2.tar.gz
+
+Copy the contents of the dist/PHRI folder to /opt/datafax/PHRI and the contents
+of dist/reports to /opt/datafax/reports
+
+
+Martin Renters
+martin@teckelworks.com

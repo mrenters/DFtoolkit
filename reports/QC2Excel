@@ -1,0 +1,50 @@
+#!/bin/sh
+#
+# Copyright 2016-2017, Population Health Research Institute
+# Copyright 2016-2017, Martin Renters
+#
+# This file is part of the DataFax Toolkit.
+#
+# The DataFax Toolkit is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# The DataFax Toolkit is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with The DataFax Toolkit.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+STUDY=$1
+shift
+
+# Set the output file name
+if [ -z "$DFUSER" ]
+then
+	OUTFILE=qc.xlsx
+else
+	OUTFILE=qc-$DFUSER.xlsx
+fi
+
+if [ -z "$DATAFAX_DIR" ]
+then
+	DATAFAX_DIR=/opt/datafax
+	export DATAFAX_DIR
+fi
+
+STUDYDIR=`$DATAFAX_DIR/bin/DFgetparam.rpc -s $STUDY STUDY_DIR`
+if [ -z "$STUDYDIR" ]
+then
+	echo "Unable to determine study directory"
+	exit 2
+fi
+
+$DATAFAX_DIR/bin/DFexport.rpc -s all $STUDY 511 - | \
+	sort -t\| -n -k 9,9 -k 7,7 -k 6,6 -k 5,5 -k 8,8 | \
+	$DATAFAX_DIR/PHRI/python27 $DATAFAX_DIR/PHRI/qc2excel.py \
+		--studydir=$STUDYDIR --xlsx=$STUDYDIR/work/$OUTFILE "$@"
+

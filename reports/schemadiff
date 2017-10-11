@@ -1,0 +1,70 @@
+#!/bin/sh
+#
+# Copyright 2015-2017, Population Health Research Institute
+# Copyright 2015-2017, Martin Renters
+#
+# This file is part of the DataFax Toolkit.
+#
+# The DataFax Toolkit is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# The DataFax Toolkit is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with The DataFax Toolkit.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+##########################################################################
+# Compare Two DFschema files and report major differences
+#
+# Initial: Martin Renters, 2015-05-22
+# Updated: Martin Renters, 2016-12-05 (Python 2.7)
+##########################################################################
+if [ $# -lt 1 ]
+then
+	echo "No study Specified"
+	exit 2;
+fi
+
+STUDY_DIR=`$DATAFAX_DIR/bin/DFgetparam.rpc -s $1 STUDY_DIR`
+if [ -z "$STUDY_DIR" ]
+then
+	echo "Unable to determine STUDY_DIR"
+	exit 2
+fi
+STUDY_NAME=`$DATAFAX_DIR/bin/DFgetparam.rpc -s $1 STUDY_NAME`
+STUDY_NAME="$STUDY_NAME ($1)"
+
+if [ $# -lt 3 ]
+then
+	echo "Required Parameters:"
+	echo "old-schema new-schema"
+	echo ""
+	echo "Available Schema Files"
+	echo ""
+	ls $STUDY_DIR/dfschema | grep ".json$"
+	exit;
+fi
+
+if [ ! -f "$STUDY_DIR/dfschema/$2" ]
+then
+	echo "Source schema file $2 does not exist."
+	exit 2
+fi
+
+if [ ! -f "$STUDY_DIR/dfschema/$3" ]
+then
+	echo "Target schema file $3 does not exist."
+	exit 2
+fi
+
+echo "Processing schema differences from $2 to $3..."
+
+OUTFILE="$STUDY_DIR/work/schemachanges-`basename $2 .json`-to-`basename $3 .json`.xlsx"
+/opt/datafax/PHRI/python27 $DATAFAX_DIR/PHRI/schemadiff.py --original $STUDY_DIR/dfschema/$2 --current $STUDY_DIR/dfschema/$3 --xlsx $OUTFILE
+echo "Output file is: $OUTFILE"

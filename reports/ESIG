@@ -1,0 +1,48 @@
+#!/bin/sh
+#
+# Copyright 2015-2017, Population Health Research Institute
+# Copyright 2015-2017, Martin Renters
+#
+# This file is part of the DataFax Toolkit.
+#
+# The DataFax Toolkit is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# The DataFax Toolkit is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with The DataFax Toolkit.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+STUDY=$1
+
+if [ -z "$DATAFAX_DIR" ]
+then
+	DATAFAX_DIR=/opt/datafax
+fi
+
+STUDY_DIR=`$DATAFAX_DIR/bin/DFgetparam.rpc -s $STUDY STUDY_DIR`
+
+if [ -z "$STUDY_DIR" ]
+then
+	echo "Unable to determine study directory"
+	exit 2
+fi
+
+echo "STUDY_DIR=$STUDY_DIR"
+
+$DATAFAX_DIR/bin/DFaudittrace -s $STUDY \
+  -N -d 19900101-today | $DATAFAX_DIR/PHRI/sigtrack \
+	--config $STUDY_DIR/lib/esig.config \
+	--studydir $STUDY_DIR \
+	--db $STUDY_DIR/work/esig.db \
+	--xls $STUDY_DIR/work/esig.xlsx \
+	--drf $STUDY_DIR/drf/esig.drf
+
+echo "Excel spreadsheet in $STUDY_DIR/work/esig.xlsx"
+echo "DRF file in $STUDY_DIR/drf/esig.drf"
