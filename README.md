@@ -1,6 +1,6 @@
 # DFtoolkit
-This repository contains a series of tools for use with the DataFax Clinical Trials
-data management system.
+This repository contains a series of tools for use with the DataFax Clinical
+Trials data management system.
 
 The tools include:
 
