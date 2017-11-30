@@ -568,7 +568,7 @@ class DFpdf(object):
     }
 
     def __init__(self, path, name, sql, study, hide_internal, \
-            include_attached_images, prefer_background, \
+            include_attached_images, prefer_background, shadow_pages, \
             format_pid, \
             include_chronological_audit, \
             include_field_audit, fontsize, leading):
@@ -578,6 +578,7 @@ class DFpdf(object):
         self.hide_internal = hide_internal
         self.include_attached_images = include_attached_images
         self.prefer_background = prefer_background
+        self.shadow_pages = shadow_pages
         self.include_chronological_audit = include_chronological_audit
         self.include_field_audit = include_field_audit
         self.sql = sql
@@ -896,22 +897,28 @@ class DFpdf(object):
     def outputAttachedImage(self, record, pid, visit_num, plate_num):
         raster = record[4:16]
         if self.include_attached_images.contains(plate_num) and raster[4:5] == '/':
-            path = os.path.join(self.study.studydir, 'pages', raster)
+            paths = []
+            if self.shadow_pages:
+                paths.append(os.path.join(self.shadow_pages, raster))
+            paths.append(os.path.join(self.study.studydir, 'pages', raster))
+            for path in paths:
+                if os.path.isfile(path) and os.access(path, os.R_OK):
+                    break
+            else:
+                print(' {0},{1},{2} image {3} not found or is not a readable file'.format(pid, visit_num, plate_num, path))
+                return
 
-            if not os.path.isfile(path):
-                print(' {0},{1},{2} image {3} not found or is not a file'.format(pid, visit_num, plate_num, path))
-                return
-            if not os.access(path, os.R_OK):
-                print(' {0},{1},{2} image {3} is not readable'.format(pid, visit_num, plate_num, path))
-                return
             # Try to determine if this is a PDF file
             with open(path, 'rb') as f:
                 if f.read(4) == str('%PDF'):
                     pages = PdfReader(path).pages
-                    pages = [pagexobj(x) for x in pages]
-                    for page in pages:
-                        self.content.append(DFXObj(None, page))
-                        self.content.append(PageBreak())
+                    try:
+                        pages = [pagexobj(x) for x in pages]
+                        for page in pages:
+                            self.content.append(DFXObj(None, page))
+                            self.content.append(PageBreak())
+                    except:
+                        print(' {0},{1},{2} image {3} is incompatible PDF'.format(pid, visit_num, plate_num, path))
                 else:
                     self.content.append(DFimage(None, path))
                     self.content.append(PageBreak())
@@ -1218,6 +1225,7 @@ def main():
     db = 'data.db'
     domains = None
     prefer_background = None
+    shadow_pages = None
     patients = datafax.rangelist.RangeList(1, 281474976710656)
     plates = datafax.rangelist.RangeList(1, 500)
     visits = datafax.rangelist.RangeList(0, 65535)
@@ -1234,7 +1242,8 @@ def main():
                  'levels=', 'domains=', 'quiet', 'include-attached-images=', 
                  'exclude-chronological-audit',
                  'exclude-field-audit',
-                 'prefer-background=', 'format-pid=', 'fontsize=', 'leading='])
+                 'prefer-background=', 'shadow-pages=',
+                 'format-pid=', 'fontsize=', 'leading='])
     except getopt.GetoptError, err:
         print(err)
         sys.exit(2)
@@ -1267,6 +1276,8 @@ def main():
                 include_attached_images.fromString(a)
         if o == '--prefer-background':
             prefer_background = a
+        if o == '--shadow-pages':
+            shadow_pages = a
         if o == '--format-pid':
             format_pid = a
         if o == '--fontsize':
@@ -1338,7 +1349,7 @@ def main():
 
         pdf = DFpdf(str(center_number), formatPID(format_pid, pid[0]),
                 sql, study, blinded,
-            include_attached_images, prefer_background, format_pid,
+            include_attached_images, prefer_background, shadow_pages, format_pid,
             include_chronological_audit, include_field_audit, fontsize, leading)
 
         rec_cursor = sql.execute(rec_select, (pid))
