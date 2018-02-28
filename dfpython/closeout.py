@@ -490,7 +490,7 @@ class DFcrf(Flowable):
         canvas.drawString(0*inch, 0*inch+30, 'Legend:')
         canvas.setFont('Helvetica', 8)
         canvas.drawString(0*inch+12, 0*inch+16, 'Missing Value')
-        canvas.drawString(0*inch+12, 0*inch+2, 'Value to Long for Box')
+        canvas.drawString(0*inch+12, 0*inch+2, 'Value too Long for Box')
         canvas.drawString(1.5*inch+12, 0*inch+16, 'Truncated Numeric Value')
         canvas.drawString(1.5*inch+12, 0*inch+2, 'Blinded Data')
 
