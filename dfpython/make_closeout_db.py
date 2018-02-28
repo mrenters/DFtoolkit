@@ -43,11 +43,12 @@ def main():
     sstrings = {}
     ssid_seq = 0
     study_num = None
+    patients = None
     db = 'data.db'
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 's:d:',
-            ['study=', 'db='])
+        opts, args = getopt.getopt(sys.argv[1:], 's:d:I:',
+            ['study=', 'db=', 'ids='])
     except getopt.GetoptError, err:
         print(err)
         sys.exit(2)
@@ -57,6 +58,8 @@ def main():
             study_num = int(a)
         if o in ('-d', '--db'):
             db = a
+        if o in ('-I', '--ids'):
+            patients = a
 
     if study_num is None:
         print('No study specified')
@@ -112,8 +115,12 @@ def main():
     # Read data records
     for p in plates:
         print('  ', p)
-        proc = subprocess.Popen(['DFexport.rpc', '-s', 'primary', str(study_num),
-            p, '-'], stdout=subprocess.PIPE)
+        if patients:
+            params = ['DFexport.rpc', '-s', 'primary', '-I', patients,
+                    str(study_num), p, '-']
+        else:
+            params = ['DFexport.rpc', '-s', 'primary', str(study_num), p, '-']
+        proc = subprocess.Popen(params, stdout=subprocess.PIPE)
         for data in proc.stdout:
             data = to_unicode(data)
             data = data.rstrip('\n')
@@ -130,8 +137,13 @@ def main():
     proc.wait()
 
     print('Reading audit information...')
-    proc = subprocess.Popen(['DFaudittrace', '-s', str(study_num),
-        '-d', '19900101-today', '-N', '-q', '-r'], stdout=subprocess.PIPE)
+    if patients:
+        params = ['DFaudittrace', '-s', str(study_num),
+            '-I', patients, '-d', '19900101-today', '-N', '-q', '-r']
+    else:
+        params = ['DFaudittrace', '-s', str(study_num),
+            '-d', '19900101-today', '-N', '-q', '-r']
+    proc = subprocess.Popen(params, stdout=subprocess.PIPE)
     for data in proc.stdout:
         data = to_unicode(data)
         data = data.rstrip('\n')
