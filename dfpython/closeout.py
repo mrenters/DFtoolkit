@@ -435,7 +435,9 @@ class DFcrf(Flowable):
 
             # Check for case where store len > number of boxes
             if len(field.rects) < len(clean_value):
+                print('WARNING: NOT ENOUGH BOXES value=', clean_value, 'len=', len(clean_value), 'number of boxes', len(field.rects))
                 canvas.setFillColor(red)
+                clean_value = clean_value[len(clean_value)-len(field.rects):]
 
             i = 0
             for r in field.rects:
@@ -492,7 +494,7 @@ class DFcrf(Flowable):
         canvas.drawString(0*inch+12, 0*inch+16, 'Missing Value')
         canvas.drawString(0*inch+12, 0*inch+2, 'Value too Long for Box')
         canvas.drawString(1.5*inch+12, 0*inch+16, 'Truncated Numeric Value')
-        canvas.drawString(1.5*inch+12, 0*inch+2, 'Blinded Data')
+        canvas.drawString(1.5*inch+12, 0*inch+2, 'Internal/Administrative Data')
 
         where = (0, 0, self.size[0], self.size[1]-0.5)
         field_values = self.datarec.split('|')
