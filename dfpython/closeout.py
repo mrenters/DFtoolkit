@@ -424,10 +424,11 @@ class DFcrf(Flowable):
             except ValueError:
                 value_decimal = len(value)
 
+            truncated = False
             if field.format and format_decimal < value_decimal:
                     print('WARNING: VALUE TRUNCATED value_decimal=', value_decimal, 'format_decimal=', format_decimal, 'value=[',value,'] format=', field.format, 'field=',field.description,'number=', field.number)
                     value = value[value_decimal - format_decimal]
-                    canvas.setFillColor(red)
+                    truncated = True
             if format_decimal > value_decimal:
                     value = (' ' * (format_decimal - value_decimal)) + value
 
@@ -435,12 +436,16 @@ class DFcrf(Flowable):
 
             # Check for case where store len > number of boxes
             if len(field.rects) < len(clean_value):
-                print('WARNING: NOT ENOUGH BOXES value=', clean_value, 'len=', len(clean_value), 'number of boxes', len(field.rects))
-                canvas.setFillColor(red)
+                print('WARNING: NOT ENOUGH BOXES value=', clean_value, 'len=', len(clean_value), 'boxes=', len(field.rects))
+                truncated = True
                 clean_value = clean_value[len(clean_value)-len(field.rects):]
 
             i = 0
             for r in field.rects:
+                if truncated:
+                    canvas.setFillColor(red)
+                    canvas.rect(r.left, -r.top, r.width, -r.height, fill=1)
+                    canvas.setFillColor(blue)
                 if i < len(clean_value):
                     canvas.drawCentredString(r.left+(r.width/2),
                         -(r.top+(4*r.height/5)), clean_value[i])
@@ -1228,6 +1233,7 @@ def main():
     domains = None
     prefer_background = None
     shadow_pages = None
+    centers = None
     patients = datafax.rangelist.RangeList(1, 281474976710656)
     plates = datafax.rangelist.RangeList(1, 500)
     visits = datafax.rangelist.RangeList(0, 65535)
@@ -1235,15 +1241,16 @@ def main():
     include_attached_images = datafax.rangelist.RangeList(1, 500)
     studydir = None
     format_pid = None
+    pid_list_only = False
     fontsize = 10
     leading = 12
 
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'bd:s:I:P:V:L:D:',
                 ['blinded', 'db=', 'studydir=', 'ids=', 'plates=', 'visits=',
-                 'levels=', 'domains=', 'quiet', 'include-attached-images=', 
-                 'exclude-chronological-audit',
-                 'exclude-field-audit',
+                 'levels=', 'centers=', 'domains=', 'quiet',
+                 'include-attached-images=', 'exclude-chronological-audit',
+                 'exclude-field-audit', 'pid-list-only',
                  'prefer-background=', 'shadow-pages=',
                  'format-pid=', 'fontsize=', 'leading='])
     except getopt.GetoptError, err:
@@ -1255,6 +1262,9 @@ def main():
             blinded = True
         if o in ('-d', '--db'):
             db = a
+        if o in ('--centers'):
+            centers = datafax.rangelist.RangeList(0, 21460)
+            centers.fromString(a)
         if o in ('-I', '--ids'):
             patients.fromString(a)
         if o in ('-P', '--plates'):
@@ -1288,6 +1298,8 @@ def main():
             leading = int(a)
         if o == '--quiet':
             quiet = True
+        if o == '--pid-list-only':
+            pid_list_only = True
             
     # Make sure we have a study specified
     if not studydir:
@@ -1299,7 +1311,7 @@ def main():
     if domains is not None:
         study.loadDomainMap(open(domains, 'r').read().decode('utf-8'))
 
-    centers = study.Centers()
+    centerdb = study.Centers()
 
     sql = sqlite3.connect(db)
 
@@ -1342,7 +1354,13 @@ def main():
 
     # Now loop through each patient and generate output pages for them
     for pid in pid_cursor:
-        center_number = centers.centerNumber(pid[0])
+        center_number = centerdb.centerNumber(pid[0])
+        if centers and not centers.contains(center_number):
+            continue
+        if pid_list_only:
+            print(pid[0])
+            continue
+
         print('Site {0} Patient {1}'.format(center_number, pid[0]))
         try:
             os.mkdir('{0}'.format(center_number))
