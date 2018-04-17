@@ -302,10 +302,11 @@ class DFcrf(Flowable):
         bkgds = []
         # If we have a prefered background, try that first
         if self.prefer_background:
-            bkgds.append('bkgd/DFbkgd%03d_%d_%s.png' % \
-                    (plate_num, visit_num, self.prefer_background))
-            bkgds.append('bkgd/DFbkgd%03d_all_%s.png' % \
-                    (plate_num, self.prefer_background))
+            for bkgd in self.prefer_background.split(','):
+                bkgds.append('bkgd/DFbkgd%03d_%d_%s.png' % \
+                    (plate_num, visit_num, bkgd))
+                bkgds.append('bkgd/DFbkgd%03d_all_%s.png' % \
+                    (plate_num, bkgd))
 
         # Regular background names
         bkgds.append('bkgd/DFbkgd%03d_%d.png' % (plate_num, visit_num))
