@@ -411,7 +411,7 @@ def resolveReferences(study):
 
     # Build a hash of the fields
     for m in study.get('modules'):
-        for f in m.get('fields'):
+        for f in m.get('fields') or []:
             fields[f['id']] = f
 
     # Resolve missing tags from fields to fieldRefs
