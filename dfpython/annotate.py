@@ -276,6 +276,7 @@ class AnnotatedCRF(object):
         self.plateFilter = None
         self.enable_lut = False
         self.extra_detail = 'legalrange'
+        self.preferred_background = None
         self.priorities = {}
         self.colors = [
                 (HexColor(0xB21616), white, HexColor(0xF39d9d), HexColor(0x505050), HexColor(0xFAD2D2)),
@@ -294,6 +295,9 @@ class AnnotatedCRF(object):
 
     def enableLUT(self, enable_lut):
         self.enable_lut = enable_lut
+
+    def setPreferredBackground(self, background):
+        self.preferred_background = background
 
     def filterPlates(self, r):
         self.plateFilter = r
@@ -451,6 +455,7 @@ class AnnotatedCRF(object):
         return table
     
     def setPlate(self, plate):
+        bkgds = []
         self.firstField = 0
         self.lastField = 0
         self.bkgd_width, self.bkgd_height = (1728, 2000)
@@ -464,21 +469,28 @@ class AnnotatedCRF(object):
             if self.bkgd_height < 2*bb[3]+10:
                 self.bkgd_height = 2*bb[3]+10
 
-        path = os.path.join(self.study.studydir, 'bkgd',
-                'DFbkgd%03d.png' % plate.number())
-        try:
-            self.bkgd = StringIO()
-            img = Image.open(path).convert('L').point(lambda p: p*0.5+128)
-            self.bkgd_img_height = img.size[1]
-            if self.bkgd_width < img.size[0]:
-                self.bkgd_width = img.size[0]
-            if self.bkgd_height < img.size[1]:
-                self.bkgd_height = img.size[1]
-            img.save(self.bkgd, 'PNG')
-        except IOError:
-            self.bkgd = None
-            pass
+        if self.preferred_background:
+            for bkgd in self.preferred_background.split(','):
+                bkgds.append('DFbkgd%03d_all_%s.png' % (plate.number(), bkgd))
 
+        bkgds.append('DFbkgd%03d.png' % plate.number())
+
+        for bkgd in bkgds:
+            path = os.path.join(self.study.studydir, 'bkgd', bkgd)
+            try:
+                self.bkgd = StringIO()
+                img = Image.open(path).convert('L').point(lambda p: p*0.5+128)
+                self.bkgd_img_height = img.size[1]
+                if self.bkgd_width < img.size[0]:
+                    self.bkgd_width = img.size[0]
+                if self.bkgd_height < img.size[1]:
+                    self.bkgd_height = img.size[1]
+                img.save(self.bkgd, 'PNG')
+                break
+            except IOError:
+                self.bkgd = None
+                pass
+    
         self.plate = plate
 
     def fieldStarting(self, field_num):
@@ -741,12 +753,13 @@ def main():
     priority_file = None
     enable_lut = False
     extradetail = 'legalrange'
+    preferred_background = None
     plates = datafax.rangelist.RangeList(1,500)
     plates.fromString('*')
     try:
         opts, args = getopt.getopt(sys.argv[1:], 's:o:p:',
                 ['studydir=', 'output=', 'plates=', 'priority-file=',
-                    'legal', 'editchecks', 'lut', 'help'])
+                    'prefer-background=', 'legal', 'editchecks', 'lut', 'help'])
     except getopt.GetoptError, err:
         print(err)
         sys.exit(2)
@@ -766,6 +779,8 @@ def main():
             extradetail = 'editchecks'
         if o == '--lut':
             enable_lut = True
+        if o == '--prefer-background':
+            preferred_background = a
         if o == '--help':
             print('Annotation Options:')
             print('--plates range        Limit output to the specified plate range')
@@ -804,6 +819,7 @@ def main():
     a.setPriorityFile(priority_file)
     a.setExtraDetail(extradetail)
     a.enableLUT(enable_lut)
+    a.setPreferredBackground(preferred_background)
     a.filterPlates(plates)
 
     a.build_pdf(output)
