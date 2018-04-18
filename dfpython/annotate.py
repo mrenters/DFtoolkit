@@ -783,11 +783,12 @@ def main():
             preferred_background = a
         if o == '--help':
             print('Annotation Options:')
-            print('--plates range        Limit output to the specified plate range')
-            print('--priority-file file  Use file for field priority information')
-            print('--legal               Show legal range information (default)')
-            print('--editchecks          Show Edit check information')
-            print('--lut                 List first "LUT" field enter EC in the coding column')
+            print('--plates range                Limit output to the specified plate range')
+            print('--priority-file file          Use file for field priority information')
+            print('--legal                       Show legal range information (default)')
+            print('--editchecks                  Show Edit check information')
+            print('--lut                         List first "LUT" field enter EC in coding column')
+            print('--prefer-background bkgd(s)   Prefer listed backgrounds (comma separated)')
             sys.exit(0)
 
     if not studydir:
