@@ -279,8 +279,8 @@ class DFXObj(Flowable):
 # DFcrf - DataFax CRF Representation
 ##############################################################################
 class DFcrf(Flowable):
-    def __init__(self, size, study, datarec, hide_blinded, prefer_background,
-            header_callback):
+    def __init__(self, size, study, datarec, hide_blinded, redaction_dict,
+            prefer_background, header_callback):
         if size is None:
             size = (6.3*inch, 8.2*inch)
         self.size = size
@@ -289,14 +289,16 @@ class DFcrf(Flowable):
         self.font = 'Helvetica'
         self.font_size = 20
         self.hide_blinded = hide_blinded
+        self.redaction_dict = redaction_dict
         self.prefer_background = prefer_background
         self.header_callback = header_callback
 
     def wrap(self, *args):
         return self.size
 
-    def drawBackground(self, where, visit_num, plate_num):
+    def drawBackground(self, where, visit_num, plate):
         canvas = self.canv
+        plate_num = plate.number()
         img = None
         path = None
         bkgds = []
@@ -327,32 +329,43 @@ class DFcrf(Flowable):
         else:
             i_w, i_h = img.size
 
+        # Find field bounding box if biggen than background
+        p_w = i_w
+        p_h = i_h
+        for field in plate.fieldList():
+            bb = field.boundingBox()
+            if bb:
+                if bb[2]*2+5 > p_w:
+                    p_w = bb[2]*2+5
+                if bb[3]*2+5 > p_h:
+                    p_h = bb[3]*2+5
+
         # Calculate scaling and translation for background image
         window_width = where[2]
         window_height = where[3]
-        x_scale = float(where[2])/i_w
-        y_scale = float(where[3]-50)/i_h
+        x_scale = float(where[2])/p_w
+        y_scale = float(where[3]-50)/p_h
 
         scale = x_scale
         if x_scale > y_scale:
             scale = y_scale
 
-        translate_x = (where[2]-(i_w*scale))/2
-        translate_y = (where[3]-(i_h*scale))
+        translate_x = (where[2]-(p_w*scale))/2
+        translate_y = (where[3]-(p_h*scale))
         canvas.translate(where[0]+translate_x, where[1]+translate_y)
         canvas.scale(scale, scale)
 
         # If we have a background image, draw it now
         if img:
-            canvas.drawImage(path, 0, 0)
+            canvas.drawImage(path, 0, p_h-i_h)
 
         canvas.setStrokeColor(black)
 
         # Draw image bounding box
-        canvas.rect(0, 0, i_w, i_h)
+        canvas.rect(0, 0, p_w, p_h)
 
         # Set up translation and scaling for field drawing
-        canvas.translate(0, i_h)
+        canvas.translate(0, p_h)
 
         # Adjust scaling for field positions. DFbkgd images are double
         # the resolution of the field coordinates
@@ -520,7 +533,7 @@ class DFcrf(Flowable):
             print('Plate ', plate_num, ' does not exist in study.')
             return
 
-        self.drawBackground(where, visit_num, plate_num)
+        self.drawBackground(where, visit_num, plate)
 
         for field in plate.fieldList():
             self.blankFieldBackground(field)
@@ -543,7 +556,9 @@ class DFcrf(Flowable):
                 value = field_values[field.number-1]
 
             # If we're blinded to internal fields, don't display them
-            if self.hide_blinded and field.isBlinded():
+            if (self.redaction_dict and \
+                    self.redaction_dict.get((plate_num, field.number))) or \
+                    (self.hide_blinded and field.isBlinded()):
                 self.drawBoxes(field, black, black)
             else:
                 if is_lost:
@@ -575,7 +590,7 @@ class DFpdf(object):
             '10': 'Other Reason'
     }
 
-    def __init__(self, path, name, sql, study, hide_internal, \
+    def __init__(self, path, name, sql, study, hide_internal, redaction_dict, \
             include_attached_images, prefer_background, shadow_pages, \
             format_pid, \
             include_chronological_audit, \
@@ -584,6 +599,7 @@ class DFpdf(object):
         self.name = name
         self.study = study
         self.hide_internal = hide_internal
+        self.redaction_dict = redaction_dict
         self.include_attached_images = include_attached_images
         self.prefer_background = prefer_background
         self.shadow_pages = shadow_pages
@@ -771,7 +787,9 @@ class DFpdf(object):
         bookmark = '{0}_{1}_{2}_FA'.format(id, visit_num, plate_num)
         title = Paragraph('<a name="{0}"/>Audit by Field'.format(bookmark), styleH)
         for field in plate.fieldList():
-            if self.hide_internal and field.isBlinded():
+            if (self.redaction_dict and \
+                    self.redaction_dict.get((plate_num, field.number))) or \
+                    (self.hide_internal and field.isBlinded()):
                 description = 'Internal Use Only Field'
             else:
                 description = field.description
@@ -896,7 +914,7 @@ class DFpdf(object):
     #########################################################################
     def outputCRFImage(self, record):
         self.content.append(DFcrf(None, self.study, record, self.hide_internal,\
-                self.prefer_background, self.setPageHeader))
+                self.redaction_dict, self.prefer_background, self.setPageHeader))
         self.content.append(PageBreak())
 
     #########################################################################
@@ -963,7 +981,9 @@ class DFpdf(object):
                 else:
                     value = field_values[field.number-1]
 
-                if self.hide_internal and field.isBlinded():
+                if (self.redaction_dict and \
+                    self.redaction_dict.get((plate_num, field.number))) or \
+                    (self.hide_internal and field.isBlinded()):
                     description = 'Internal Use Only Field'
                     list_value = 'Internal Use Only Field'
                 else:
@@ -1107,7 +1127,9 @@ class DFpdf(object):
                 blind = False
                 field = field_dict.get(rec.funiqueid)
                 # Check whether this is an internal field
-                if self.hide_internal and field and field.isBlinded():
+                if (self.redaction_dict and \
+                    self.redaction_dict.get((plate_num, field.number))) or \
+                    (self.hide_internal and field.isBlinded()):
                     blind = True
                     desc = 'Internal Use Only Field'
                 else:
@@ -1223,6 +1245,33 @@ class DFpdf(object):
         return auditOps
 
 ############################################################################
+# loadRedactionFile
+############################################################################
+def loadRedactionFile(filename):
+    redaction_dict = {}
+    try:
+        with open(filename, 'rU') as f:
+            contents = f.read().decode('utf-8')
+            for line in contents.split('\n'):
+                rec = line.split('|')
+                if len(rec) < 2:
+                    print('Bad redaction line:', line)
+                    continue
+                if rec[0]=='Plate' and rec[1]=='Field':
+                    continue
+                try:
+                    plate = int(rec[0])
+                    field = int(rec[1])
+                except ValueError:
+                    print('Bad redaction line:', line)
+                    continue
+                redaction_dict[(plate,field)] = True
+    except:
+        pass
+
+    return redaction_dict
+
+############################################################################
 # MAIN
 ############################################################################
 def main():
@@ -1232,6 +1281,8 @@ def main():
     include_field_audit = True
     db = 'data.db'
     domains = None
+    redaction = None
+    redaction_dict = {}
     prefer_background = None
     shadow_pages = None
     centers = None
@@ -1252,7 +1303,7 @@ def main():
                  'levels=', 'centers=', 'domains=', 'quiet',
                  'include-attached-images=', 'exclude-chronological-audit',
                  'exclude-field-audit', 'pid-list-only',
-                 'prefer-background=', 'shadow-pages=',
+                 'prefer-background=', 'shadow-pages=', 'redaction=',
                  'format-pid=', 'fontsize=', 'leading='])
     except getopt.GetoptError, err:
         print(err)
@@ -1278,6 +1329,8 @@ def main():
             studydir = a
         if o in ('-D', '--domains'):
             domains = a
+        if o == '--redaction':
+            redaction = a
         if o == '--exclude-chronological-audit':
             include_chronological_audit = False
         if o == '--exclude-field-audit':
@@ -1311,6 +1364,11 @@ def main():
     study.loadFromFiles(studydir)
     if domains is not None:
         study.loadDomainMap(open(domains, 'r').read().decode('utf-8'))
+    if redaction is not None:
+        redaction_dict = loadRedactionFile(redaction)
+        if not redaction_dict:
+            print('Unable to load redaction file')
+            sys.exit(2)
 
     centerdb = study.Centers()
 
@@ -1369,7 +1427,7 @@ def main():
             pass
 
         pdf = DFpdf(str(center_number), formatPID(format_pid, pid[0]),
-                sql, study, blinded,
+                sql, study, blinded, redaction_dict,
             include_attached_images, prefer_background, shadow_pages, format_pid,
             include_chronological_audit, include_field_audit, fontsize, leading)
 
