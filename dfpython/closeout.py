@@ -38,7 +38,8 @@ from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.enums import TA_LEFT, TA_CENTER
 from reportlab.platypus import Paragraph, Frame, Table, TableStyle, \
     KeepTogether, Flowable, SimpleDocTemplate, PageBreak
-from reportlab.platypus.doctemplate import PageTemplate, BaseDocTemplate
+from reportlab.platypus.doctemplate import PageTemplate, BaseDocTemplate, \
+    LayoutError
 from reportlab.platypus.tableofcontents import TableOfContents
 
 from pdfrw import PdfReader
@@ -419,8 +420,19 @@ class DFcrf(Flowable):
                 canvas.drawPath(path)
                 canvas.restoreState()
         # Date
-        elif field.type == 'Date':
+        elif field.type == 'Date' and len(field.rects) > 1:
             clean_value = re.sub('[^0-9A-Za-z]','', value)
+            i = 0
+            for r in field.rects:
+                if i < len(clean_value):
+                    canvas.drawCentredString(r.left+(r.width/2),
+                        -(r.top+(4*r.height/5)), clean_value[i])
+                i += 1
+        elif field.type == 'Number' and len(field.rects) == 2 and \
+                field.format == 'nn:nn' and (':' in value or value == ''):
+            if value == '':
+                value = '  :  ';
+            clean_value = value.split(':')
             i = 0
             for r in field.rects:
                 if i < len(clean_value):
@@ -1127,9 +1139,9 @@ class DFpdf(object):
                 blind = False
                 field = field_dict.get(rec.funiqueid)
                 # Check whether this is an internal field
-                if (self.redaction_dict and \
+                if field and ((self.redaction_dict and \
                     self.redaction_dict.get((plate_num, field.number))) or \
-                    (self.hide_internal and field.isBlinded()):
+                    (self.hide_internal and field.isBlinded())):
                     blind = True
                     desc = 'Internal Use Only Field'
                 else:
@@ -1186,7 +1198,10 @@ class DFpdf(object):
                 elif rec.op == 'C':
                     oldval = self.escape_string(oldval)
                     newval = self.escape_string(newval)
-                    ops.append('Changed Value: <b>{0} \u2192 {1}</b>'.format(oldval, newval))
+                    if len(oldval) > 100 or len(newval) > 100:
+                        ops.append('Changed Value: <b>{0}</b>'.format(newval))
+                    else:
+                        ops.append('Changed Value: <b>{0} \u2192 {1}</b>'.format(oldval, newval))
                 elif rec.op == 'D':
                     ops.append('Data Record Deleted')
     
@@ -1275,6 +1290,7 @@ def loadRedactionFile(filename):
 # MAIN
 ############################################################################
 def main():
+    retcode = 0
     quiet = False
     blinded = False
     include_chronological_audit = True
@@ -1462,7 +1478,20 @@ def main():
 
         # Actually build the PDF file based on the content generated above
         print('Writing out PDF file...')
-        pdf.close(quiet)
+        try:
+            pdf.close(quiet)
+        except LayoutError as e:
+            print('****** ERROR: Unable to layout page for',
+                    pdf.headerId, 'Visit', pdf.headerVisitNum,
+                    '({0})'.format(pdf.headerVisitLabel),
+                    'Plate', pdf.headerPlateNum,
+                    '({0})'.format(pdf.headerPlateLabel))
+            if not quiet:
+                print('    ',e)
+            print('****** Try using a smaller font using --font-size and --leading options')
+            retcode = 1
+
+    sys.exit(retcode)
 
 if __name__ == '__main__':
     main()
