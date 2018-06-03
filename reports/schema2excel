@@ -50,6 +50,7 @@ if [ -z "$DATAFAX_DIR" ]
 then
 	DATAFAX_DIR=/opt/datafax
 fi
+PATH="$PATH:$DATAFAX_DIR/bin";export PATH
 
 STUDY_DIR=`$DATAFAX_DIR/bin/DFgetparam.rpc -s $1 STUDY_DIR`
 if [ -z "$STUDY_DIR" ]
