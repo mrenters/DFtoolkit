@@ -1,3 +1,10 @@
 #!/bin/sh
-source /opt/rh/python27/enable
-exec python "$@"
+if [ -f /etc/redhat-release ]; then
+	source /opt/rh/python27/enable
+	exec python "$@"
+elif [ `uname -s` = "SunOS" ]; then
+	exec /opt/csw/bin/python "$@"
+else
+	echo "Unable to determine which python to use"
+	exit 2
+fi
