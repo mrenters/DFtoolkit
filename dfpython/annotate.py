@@ -275,6 +275,7 @@ class AnnotatedCRF(object):
         self.lastField = 0
         self.plateFilter = None
         self.enable_lut = False
+        self.lowres_only = False
         self.extra_detail = 'legalrange'
         self.preferred_background = None
         self.priorities = {}
@@ -295,6 +296,9 @@ class AnnotatedCRF(object):
 
     def enableLUT(self, enable_lut):
         self.enable_lut = enable_lut
+
+    def setLowResOnly(self, lowres):
+        self.lowres_only = lowres
 
     def setPreferredBackground(self, background):
         self.preferred_background = background
@@ -458,38 +462,48 @@ class AnnotatedCRF(object):
         bkgds = []
         self.firstField = 0
         self.lastField = 0
+        self.field_scale = 2
         self.bkgd_width, self.bkgd_height = (1728, 2000)
         self.bkgd_img_height = self.bkgd_height
-        for field in plate.fieldList():
-            bb = field.boundingBox()
-            if bb is None:
-                continue
-            if self.bkgd_width < 2*bb[2]+10:
-                self.bkgd_width = 2*bb[2]+10
-            if self.bkgd_height < 2*bb[3]+10:
-                self.bkgd_height = 2*bb[3]+10
 
-        if self.preferred_background:
-            for bkgd in self.preferred_background.split(','):
-                bkgds.append('DFbkgd%03d_all_%s.png' % (plate.number(), bkgd))
+        if not self.lowres_only:
+            if self.preferred_background:
+                for bkgd in self.preferred_background.split(','):
+                    bkgds.append('DFbkgd%03d_all_%s.png' % (plate.number(),
+                        bkgd))
 
-        bkgds.append('DFbkgd%03d.png' % plate.number())
+            bkgds.append('DFbkgd%03d.png' % plate.number())
+
+        bkgds.append('plt%03d.png' % plate.number())
+        bkgds.append('plt%03d' % plate.number())
 
         for bkgd in bkgds:
             path = os.path.join(self.study.studydir, 'bkgd', bkgd)
             try:
                 self.bkgd = StringIO()
                 img = Image.open(path).convert('L').point(lambda p: p*0.5+128)
+                self.bkgd_width = img.size[0]
+                self.bkgd_height = img.size[1]
                 self.bkgd_img_height = img.size[1]
-                if self.bkgd_width < img.size[0]:
-                    self.bkgd_width = img.size[0]
-                if self.bkgd_height < img.size[1]:
-                    self.bkgd_height = img.size[1]
+
+                if self.bkgd_width < 900:
+                    self.field_scale = 1
+
                 img.save(self.bkgd, 'PNG')
+                print(plate.number(),'->', path, self.bkgd_width, self.bkgd_height)
                 break
             except IOError:
                 self.bkgd = None
                 pass
+
+        for field in plate.fieldList():
+            bb = field.boundingBox()
+            if bb is None:
+                continue
+            if self.bkgd_width < self.field_scale*bb[2]+10:
+                self.bkgd_width = self.field_scale*bb[2]+10
+            if self.bkgd_height < self.field_scale*bb[3]+10:
+                self.bkgd_height = self.field_scale*bb[3]+10
     
         self.plate = plate
 
@@ -593,8 +607,7 @@ class AnnotatedCRF(object):
 
         # Set up coordinates for CRF fields
         canvas.translate(0, self.bkgd_height)
-        if self.bkgd_width != 864:
-            canvas.scale(2,2)
+        canvas.scale(self.field_scale,self.field_scale)
 
         # Blank out existing boxes on CRF
         canvas.setStrokeColor(white)
@@ -752,6 +765,7 @@ def main():
     output = None
     priority_file = None
     enable_lut = False
+    lowresonly = False
     extradetail = 'legalrange'
     preferred_background = None
     plates = datafax.rangelist.RangeList(1,500)
@@ -759,7 +773,8 @@ def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], 's:o:p:',
                 ['studydir=', 'output=', 'plates=', 'priority-file=',
-                    'prefer-background=', 'legal', 'editchecks', 'lut', 'help'])
+                 'prefer-background=', 'legal', 'editchecks', 'lut',
+                 'help', 'lowres'])
     except getopt.GetoptError, err:
         print(err)
         sys.exit(2)
@@ -779,6 +794,8 @@ def main():
             extradetail = 'editchecks'
         if o == '--lut':
             enable_lut = True
+        if o == '--lowres':
+            lowresonly = True
         if o == '--prefer-background':
             preferred_background = a
         if o == '--help':
@@ -789,6 +806,7 @@ def main():
             print('--editchecks                  Show Edit check information')
             print('--lut                         List first "LUT" field enter EC in coding column')
             print('--prefer-background bkgd(s)   Prefer listed backgrounds (comma separated)')
+            print('--lowres                      Use low res backgrounds only (for old studies)')
             sys.exit(0)
 
     if not studydir:
@@ -811,14 +829,12 @@ def main():
         print('Specified path', output, 'is a directory')
         sys.exit(2)
 
-    #pdfmetrics.registerFont(TTFont('DejaVuSansCondensed', '/usr/share/fonts/dejavu/DejaVuSansCondensed.ttf'))
-    #pdfmetrics.registerFont(TTFont('DejaVuSansCondensed-Bold', '/usr/share/fonts/dejavu/DejaVuSansCondensed-Bold.ttf'))
-    #pdfmetrics.registerFont(TTFont('DejaVuSansCondensed-Oblique', '/usr/share/fonts/dejavu/DejaVuSansCondensed-Oblique.ttf'))
     study = datafax.Study()
     study.loadFromFiles(studydir)
     a = AnnotatedCRF(study)
     a.setPriorityFile(priority_file)
     a.setExtraDetail(extradetail)
+    a.setLowResOnly(lowresonly)
     a.enableLUT(enable_lut)
     a.setPreferredBackground(preferred_background)
     a.filterPlates(plates)
