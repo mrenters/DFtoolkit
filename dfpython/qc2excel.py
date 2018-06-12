@@ -80,6 +80,26 @@ def load_priorities(studydir, name):
         pass
     return priorities
 
+def extractDate(user_ts):
+    if user_ts:
+        try:
+            fields = user_ts.split(' ')
+            if len(fields) == 3:
+                [year, month, day] = fields[1].split('/')
+                if int(year) > 90:
+                    year = int(year) + 1900
+                else:
+                    year = int(year) + 2000
+    
+                [hh, mm, ss] = fields[2].split(':')
+             
+                return (fields[0], datetime.datetime(year, int(month), int(day),
+                    int(hh), int(mm), int(ss)))
+        except:
+            pass
+
+    return (None, None)
+
 #####################################################################
 # Convert QC data on stdin to Excel format
 #####################################################################
@@ -96,7 +116,7 @@ def QC2Excel(config):
     external = config.get('external')
     percent = config.get('percent')
     sitemode = config.get('sitemode')
-    creation_date = config.get('creation_date')
+    timestamps = config.get('timestamps')
     xlsx = config.get('xlsx')
     if xlsx is None:
         xlsx = 'qc.xlsx'
@@ -215,7 +235,7 @@ def QC2Excel(config):
         {   'align': 'center',
             'valign': 'vcenter',
             'text_wrap': True,
-            'num_format': 'yyyy-mm-dd',
+            'num_format': 'yyyy-mm-dd hh:mm:ss',
             'border': 1
         })
     normal_format_red = workbook.add_format(
@@ -242,7 +262,7 @@ def QC2Excel(config):
             'font_color': '#9c0006',
             'bg_color': '#ffc7ce',
             'text_wrap': True,
-            'num_format': 'yyyy-mm-dd',
+            'num_format': 'yyyy-mm-dd hh:mm:ss',
             'border': 1
         })
     normal_format_orange = workbook.add_format(
@@ -269,7 +289,7 @@ def QC2Excel(config):
             'font_color': '#3f3f76',
             'bg_color': '#ffcc99',
             'text_wrap': True,
-            'num_format': 'yyyy-mm-dd',
+            'num_format': 'yyyy-mm-dd hh:mm:ss',
             'border': 1
         })
     normal_format_yellow = workbook.add_format(
@@ -296,7 +316,7 @@ def QC2Excel(config):
             'font_color': '#9c6500',
             'bg_color': '#ffeb9c',
             'text_wrap': True,
-            'num_format': 'yyyy-mm-dd',
+            'num_format': 'yyyy-mm-dd hh:mm:ss',
             'border': 1
         })
     normal_format_green = workbook.add_format(
@@ -323,7 +343,7 @@ def QC2Excel(config):
             'font_color': '#006100',
             'bg_color': '#c6efce',
             'text_wrap': True,
-            'num_format': 'yyyy-mm-dd',
+            'num_format': 'yyyy-mm-dd hh:mm:ss',
             'border': 1
         })
     shaded_format = workbook.add_format(
@@ -347,16 +367,16 @@ def QC2Excel(config):
     # Add title
     #####################################################################
     sheet.set_row(0,75)
-    sheet.merge_range(0,0,0,17, 'QC Report for {0}'.format(study.studyName()),
+    sheet.merge_range(0,0,0,23, 'QC Report for {0}'.format(study.studyName()),
            title_format)
-    sheet.merge_range(1,0,1,17, 'Generated on {0}'.format(
+    sheet.merge_range(1,0,1,23, 'Generated on {0}'.format(
         datetime.date.today().isoformat()), header_format)
 
     #####################################################################
     # Add space for charts
     #####################################################################
     sheet.set_row(2,230)
-    sheet.merge_range(2,0,2,17, '', normal_format)
+    sheet.merge_range(2,0,2,23, '', normal_format)
 
     #####################################################################
     # Add QC listing headers
@@ -367,55 +387,67 @@ def QC2Excel(config):
 
     hidden = {'hidden': 1}
 
-    extra = 0
+    extra_distribute = 0
+    extra_width = 0
 
     if config.get('region'):
         sheet.set_column( 0, 0, 10)     # Region
     else:
         sheet.set_column( 0, 0, 10, options=hidden)     # Region
-        extra += 12
+        extra_distribute += 12
 
     if config.get('country'):
         sheet.set_column( 1, 1, 10)     # Country
     else:
         sheet.set_column( 1, 1, 10, options=hidden)     # Country
-        extra += 12
+        extra_distribute += 12
     
     if priority_file:
         sheet.set_column(10,10, 10)                    # Priority
     else:
         sheet.set_column(10,10, 10, options=hidden)    # Priority
-        extra += 12
+        extra_distribute += 12
 
     if sitemode:
         sheet.set_column( 5, 5, 10, options=hidden)     # Visit
         sheet.set_column( 6, 6, 10, options=hidden)     # Plate
         sheet.set_column( 9, 9, 10, options=hidden)     # Field#
-        if creation_date:
-            sheet.set_column(11,11, 12, options=hidden)     # Creation date
-        else:
-            sheet.set_column(11,11, 10, options=hidden)     # Age
-        extra += 50     # Gross up 25% bit
+        sheet.set_column(11,11, 10, options=hidden)     # Age
+        extra_distribute += 50     # Gross up 25% bit
     else:
         sheet.set_column( 5, 5, 10)     # Visit
         sheet.set_column( 6, 6, 10)     # Plate
         sheet.set_column( 9, 9, 10)     # Field#
-        if creation_date:
-            sheet.set_column(11,11, 12) # Creation date
-        else:
-            sheet.set_column(11,11, 10) # Age
+        sheet.set_column(11,11, 10)     # Age
+
+    # Creation, modification, resolution user/timestamp
+    if timestamps:
+            sheet.set_column(18,18, 12)
+            sheet.set_column(19,19, 20)
+            sheet.set_column(20,20, 12)
+            sheet.set_column(21,21, 20)
+            sheet.set_column(22,22, 12)
+            sheet.set_column(23,23, 20)
+            extra_width += 96
+    else:
+            sheet.set_column(18,18, 12, options=hidden)
+            sheet.set_column(19,19, 20, options=hidden)
+            sheet.set_column(20,20, 12, options=hidden)
+            sheet.set_column(21,21, 20, options=hidden)
+            sheet.set_column(22,22, 12, options=hidden)
+            sheet.set_column(23,23, 20, options=hidden)
 
     sheet.set_column( 2, 2, 10)                 # Site
     sheet.set_column( 3, 3, 15)                 # Patient
-    sheet.set_column( 4, 4, 25 + (extra/10))    # Assessment
-    sheet.set_column( 7, 7, 25 + (extra/10))    # Page
-    sheet.set_column( 8, 8, 25 + (extra/10))    # Field
+    sheet.set_column( 4, 4, 25 + (extra_distribute/10))    # Assessment
+    sheet.set_column( 7, 7, 25 + (extra_distribute/10))    # Page
+    sheet.set_column( 8, 8, 25 + (extra_distribute/10))    # Field
     sheet.set_column(12,12, 10)                 # Age Bin
     sheet.set_column(13,13, 20)                 # Status
     sheet.set_column(14,14, 20)                 # Problem
-    sheet.set_column(15,15, 20 + (extra/5))     # Value
-    sheet.set_column(16,16, 20 + (extra/5))     # Query
-    sheet.set_column(17,17, 20 + (extra/5))     # Reply
+    sheet.set_column(15,15, 20 + (extra_distribute/5))     # Value
+    sheet.set_column(16,16, 20 + (extra_distribute/5))     # Query
+    sheet.set_column(17,17, 20 + (extra_distribute/5))     # Reply
 
     row += 1
     start_table_row = row
@@ -474,23 +506,18 @@ def QC2Excel(config):
 
         problem_code = int(qcf[14])
 
-        # Extract creation date
-        cr_ts = qcf[18].split(' ')
-        [year, month, day] = cr_ts[1].split('/')
-        if int(year) > 90:
-            year = int(year) + 1900
-        else:
-            year = int(year) + 2000
-            
-        cr_date = datetime.date(year, int(month), int(day))
+        # Extract creation, modification, resolution users/timestamps
+        cr_user, cr_date = extractDate(qcf[18])
+        md_user, md_date = extractDate(qcf[19])
+        rs_user, rs_date = extractDate(qcf[20])
 
         ######################################################
         # Calculate Age of QC
         ######################################################
         age = None
         agebin_str = None
-        if not is_resolved:
-            age = (today-cr_date).days
+        if not is_resolved and cr_date:
+            age = (today-cr_date.date()).days
             agebin = int(age/30)
             if agebin > 6:
                 agebin = 6
@@ -570,17 +597,19 @@ def QC2Excel(config):
         sheet.write(row, 8, fname, format_string)
         sheet.write(row, 9, fnum, format_number)
         sheet.write(row, 10, priority, format_number)
-        if creation_date:
-            sheet.write_datetime(row, 11, cr_date, format_date)
-        else:
-            sheet.write(row, 11, age, format_number)
+        sheet.write(row, 11, age, format_number)
         sheet.write(row, 12, agebin_str, format_string)
         sheet.write_string(row, 13, status_labels[status_code], format_string)
         sheet.write_string(row, 14, pname, format_string)
         sheet.write(row, 15, value, format_string)
         sheet.write(row, 16, qcf[16], format_string)
         sheet.write(row, 17, qcf[11], format_string)
-
+        sheet.write(row, 18, cr_user, format_string)
+        sheet.write(row, 19, cr_date, format_date)
+        sheet.write(row, 20, md_user, format_string)
+        sheet.write(row, 21, md_date, format_date)
+        sheet.write(row, 22, rs_user, format_string)
+        sheet.write(row, 23, rs_date, format_date)
         status_count[status_code] += 1
         row += 1
 
@@ -589,15 +618,11 @@ def QC2Excel(config):
     if start_table_row == end_table_row:
         end_table_row += 1
         row += 1
-        sheet.merge_range(row,0,row,17, 'No Matching QC Records found',
+        sheet.merge_range(row,0,row,23, 'No Matching QC Records found',
            normal_format_str)
         row += 1
 
-    if creation_date:
-        creation_label = 'Created'
-    else:
-        creation_label = 'Days'
-    sheet.add_table(start_table_row-1, 0, end_table_row-1, 17,
+    sheet.add_table(start_table_row-1, 0, end_table_row-1, 23,
             {'autofilter': True, 'first_column': True, 'name': 'QC_Details',
                 'columns': [
                 {'header': 'Region', 'header_format': header_format},
@@ -611,13 +636,20 @@ def QC2Excel(config):
                 {'header': 'Field', 'header_format': header_format},
                 {'header': 'Fld #', 'header_format': header_format},
                 {'header': 'Priority', 'header_format': header_format},
-                {'header': creation_label, 'header_format': header_format},
+                {'header': 'Days', 'header_format': header_format},
                 {'header': 'Age', 'header_format': header_format},
                 {'header': 'Status', 'header_format': header_format},
                 {'header': 'Problem', 'header_format': header_format},
                 {'header': 'Value', 'header_format': header_format},
                 {'header': 'Query', 'header_format': header_format},
-                {'header': 'Reply', 'header_format': header_format} ]})
+                {'header': 'Reply', 'header_format': header_format},
+                {'header': 'Creator', 'header_format': header_format},
+                {'header': 'Created', 'header_format': header_format},
+                {'header': 'Modifier', 'header_format': header_format},
+                {'header': 'Modified', 'header_format': header_format},
+                {'header': 'Resolver', 'header_format': header_format},
+                {'header': 'Resolved', 'header_format': header_format}
+                ]})
 
     #####################################################################
     # Add data for charts
@@ -650,7 +682,7 @@ def QC2Excel(config):
             charts.append({ 'name': 'Priority', 'column': 'K',
                 'labels': priority_labels, 'counts': priority_count })
 
-    chart_width = 2000/len(charts)
+    chart_width = ((extra_width*8) + 2000)/len(charts)
     chart_x_offset = 5
     for chart in charts:
         sheet.merge_range(row,2,row,4, chart['name'],
@@ -788,7 +820,7 @@ def main():
               'percent', 'site-mode', 'email=', 'email-to=', 'email-from=',
               'xlsx=', 'include-country', 'include-region',
               'priority-file=', 'color-by-priority', 'creation-date',
-              'help'])
+              'timestamps', 'help'])
     except getopt.GetoptError, err:
         print(str(err))
         sys.exit(2)
@@ -831,8 +863,8 @@ def main():
             config['priority-file'] = a
         if o == "--color-by-priority":
             config['color_by_priority'] = True
-        if o == "--creation-date":
-            config['creation_date'] = True
+        if o in ("--creation-date", "--timestamps"):
+            config['timestamps'] = True
         if o in ("--email", "--email-to"):
             if config.get('email'):
                 print('Email address previously specified, skipping')
@@ -858,7 +890,7 @@ def main():
             print('--external            Don\'t include internal QC notes')
             print('--percent             Show percentages in charts instead of counts')
             print('--site-mode           Simply for sites. Hides visit, plate, field')
-            print('                       and age/creation date columns. If --outstanding')
+            print('                       and age columns. If --outstanding')
             print('                       option also given, skip QCs in pending state')
             print('                       as those have been dealt with by site.')
             print('--include-country     Include country column based on DFcountries file')
@@ -866,7 +898,7 @@ def main():
             print('--priority-file name  Use file called name for field priority levels')
             print('--color-by-priority   Color the rows based on priority.')
             print('                       1=red, 2=orange, 3=yellow, 4=green, 5=blue')
-            print('--creation-date       Replace QC age in days column with QC creation date')
+            print('--timestamps          Show creation/modification/resolution user and timestamps')
             print('--email-to addr       Sets the email address to send report to.')
             print('--email-from addr     Sets the email address report will appear to come from.')
 
