@@ -4,6 +4,8 @@ if [ -f /etc/redhat-release ]; then
 	exec python "$@"
 elif [ `uname -s` = "SunOS" ]; then
 	exec /opt/csw/bin/python "$@"
+elif [ `uname -s` = "Darwin" ]; then
+	exec python "$@"
 else
 	echo "Unable to determine which python to use"
 	exit 2
