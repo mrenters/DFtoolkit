@@ -106,9 +106,12 @@ def main():
         string text)''')
     print('Reading data...')
 
+    datafax_dir = os.getenv('DATAFAX_DIR', '/opt/datafax')
+
     # Get a list of plate numbers
-    proc = subprocess.Popen(['DFlistplates.rpc', '-s', str(study_num)],
-            stdout=subprocess.PIPE)
+    proc = subprocess.Popen([
+        os.path.join(datafax_dir, 'bin', 'DFlistplates.rpc'),
+        '-s', str(study_num)], stdout=subprocess.PIPE)
     plates = proc.stdout.read().split()
     proc.wait()
 
@@ -116,10 +119,12 @@ def main():
     for p in plates:
         print('  ', p)
         if patients:
-            params = ['DFexport.rpc', '-s', 'primary', '-I', patients,
+            params = [os.path.join(datafax_dir, 'bin', 'DFexport.rpc'),
+                    '-s', 'primary', '-I', patients,
                     str(study_num), p, '-']
         else:
-            params = ['DFexport.rpc', '-s', 'primary', str(study_num), p, '-']
+            params = [os.path.join(datafax_dir, 'bin', 'DFexport.rpc'),
+                    '-s', 'primary', str(study_num), p, '-']
         proc = subprocess.Popen(params, stdout=subprocess.PIPE)
         for data in proc.stdout:
             data = to_unicode(data)
@@ -138,10 +143,12 @@ def main():
 
     print('Reading audit information...')
     if patients:
-        params = ['DFaudittrace', '-s', str(study_num),
+        params = [os.path.join(datafax_dir, 'bin', 'DFaudittrace'),
+            '-s', str(study_num),
             '-I', patients, '-d', '19900101-today', '-N', '-q', '-r']
     else:
-        params = ['DFaudittrace', '-s', str(study_num),
+        params = [os.path.join(datafax_dir, 'bin', 'DFaudittrace'),
+            '-s', str(study_num),
             '-d', '19900101-today', '-N', '-q', '-r']
     proc = subprocess.Popen(params, stdout=subprocess.PIPE)
     for data in proc.stdout:
