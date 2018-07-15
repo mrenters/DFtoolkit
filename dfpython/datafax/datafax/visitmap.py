@@ -65,9 +65,9 @@ class VisitMap:
             entry = VisitMapEntry()
             entry.visits.fromString(fields[0])
             entry.required_plates.fromString(fields[7])
-            if len(fields) >= 8:
+            if len(fields) > 8:
                 entry.optional_plates.fromString(fields[8])
-            if len(fields) >= 11 and fields[11] != '':
+            if len(fields) > 11 and fields[11] != '':
                 entry.display_order.fromString(fields[11])
             else:
                 entry.display_order.fromString(fields[7]+" "+fields[8])
@@ -79,9 +79,9 @@ class VisitMap:
                 entry.due_date = int(fields[5])
             if fields[6]:
                 entry.overdue_allowance = int(fields[6])
-            if fields[9]:
+            if len(fields) > 9 and fields[9]:
                 entry.missed_visit_notification = int(fields[9])
-            if fields[10]:
+            if len(fields) > 10 and fields[10]:
                 entry.termination_window = fields[10]
             self.entries.append(entry)
         return True
