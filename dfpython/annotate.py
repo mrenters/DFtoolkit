@@ -405,7 +405,7 @@ class AnnotatedCRF(object):
                 if label is None or label == '':
                     label = code[0]
                 codes.append('<b>{0}</b>: {1}'.format(code[0],
-                    escape_string(code[1])))
+                    escape_string(code[1])[0:40]))
             codestr = '<br/>'.join(codes)
     
             # Look for *LUT* field enter edit check
@@ -490,7 +490,7 @@ class AnnotatedCRF(object):
                     self.field_scale = 1
 
                 img.save(self.bkgd, 'PNG')
-                print(plate.number(),'->', path, self.bkgd_width, self.bkgd_height)
+                #print(plate.number(),'->', path, self.bkgd_width, self.bkgd_height)
                 break
             except IOError:
                 self.bkgd = None
