@@ -1,3 +1,4 @@
+#!/opt/datafax/PHRI/python27
 #
 # Copyright 2017, Population Health Research Institute
 # Copyright 2017, Martin Renters
@@ -107,7 +108,7 @@ def QC2Excel(config):
     priorities = {}
     studydir = config.get('studydir')
     if studydir == None:
-        return
+        return 0
     centers_filter = config.get('centers')
     plates_filter = config.get('plates')
     visits_filter = config.get('visits')
@@ -614,8 +615,9 @@ def QC2Excel(config):
         row += 1
 
     end_table_row = row
+    qc_count = end_table_row - start_table_row
     # Make sure we have at least one row
-    if start_table_row == end_table_row:
+    if qc_count == 0:
         end_table_row += 1
         row += 1
         sheet.merge_range(row,0,row,23, 'No Matching QC Records found',
@@ -781,7 +783,7 @@ def QC2Excel(config):
         output.seek(0, os.SEEK_END)
         if output.tell() > 10*1024*1024:
             print('Excel file too large to email')
-            return
+            return 2
         print('Emailing spreadsheet to:', email, '...')
         output.seek(0)
         msg = MIMEMultipart()
@@ -808,6 +810,9 @@ def QC2Excel(config):
         status = sendmail.close()
         if status is not None and status >> 8:
             print('*** EMAIL could not be sent ***', status)
+            return 2
+
+    return 1 if qc_count == 0 else 0
 
 #####################################################################
 # Convert data on stdin to Excel format
@@ -920,7 +925,8 @@ def main():
                 pass
         sys.exit(2)
 
-    QC2Excel(config)
+    ret = QC2Excel(config)
+    sys.exit(ret)
 
 if __name__ == "__main__":
     main()
