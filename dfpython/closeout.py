@@ -1,7 +1,7 @@
-#!/usr/bin/python
+#!/opt/datafax/PHRI/python27
 #
-# Copyright 2017, Population Health Research Institute
-# Copyright 2017, Martin Renters
+# Copyright 2017-2019, Population Health Research Institute
+# Copyright 2017-2019, Martin Renters
 #
 # This file is part of the DataFax Toolkit.
 #
@@ -49,6 +49,7 @@ from pdfrw.toreportlab import makerl
 from collections import namedtuple
 
 import os
+import time
 import getopt
 import sys
 import re
@@ -61,14 +62,14 @@ from PIL import Image
 ##############################################################################
 # formatPID - Format a patient ID
 ##############################################################################
-def formatPID(format_pid, pid):
+def formatPID(format_pid, pid_num):
     if format_pid is None:
-        return str(pid)
+        return str(pid_num)
     n = 0
     for i in range(0, len(format_pid)):
         if format_pid[i] == '#':
             n += 1
-    pid_zero = str(pid).zfill(n)
+    pid_zero = str(pid_num).zfill(n)
     n = 0
     pid_str = ''
     for i in range(0, len(format_pid)):
@@ -184,18 +185,24 @@ class DFOutlines(Flowable):
 # DFimage - DataFax Image Representation
 ##############################################################################
 class DFimage(Flowable):
-    def __init__(self, size, path):
+    def __init__(self, size, path, label):
         if size is None:
-            size = (6.3*inch, 8*inch)
+            size = (6.3*inch, 8.2*inch)
         self.size = size
         self.path = path
+        self.label = label
 
     def wrap(self, *args):
         return self.size
 
     def draw(self):
-        where = (0, 0, self.size[0], self.size[1])
+        where = (0, 0, self.size[0], self.size[1]-0.25)
         canvas = self.canv
+
+        canvas.setStrokeColor(black)
+        canvas.setFillColor(black)
+        canvas.setFont('Helvetica', 8)
+        canvas.drawCentredString(where[2]/2, 0*inch, self.label)
 
         try:
             img = Image.open(self.path)
@@ -212,7 +219,7 @@ class DFimage(Flowable):
         window_width = where[2]
         window_height = where[3]
         x_scale = float(where[2])/i_w
-        y_scale = float(where[3])/i_h
+        y_scale = float(where[3]-25)/i_h
 
         scale = x_scale
         if x_scale > y_scale:
@@ -240,18 +247,24 @@ class DFimage(Flowable):
 # DFXObj - PDF XObj page
 ##############################################################################
 class DFXObj(Flowable):
-    def __init__(self, size, page):
+    def __init__(self, size, page, label):
         if size is None:
-            size = (6.3*inch, 8*inch)
+            size = (6.3*inch, 8.2*inch)
         self.size = size
         self.page = page
+        self.label = label
 
     def wrap(self, *args):
         return self.size
 
     def draw(self):
-        where = (0, 0, self.size[0], self.size[1])
+        where = (0, 0, self.size[0], self.size[1]-0.25)
         canvas = self.canv
+
+        canvas.setStrokeColor(black)
+        canvas.setFillColor(black)
+        canvas.setFont('Helvetica', 8)
+        canvas.drawCentredString(where[2]/2, 0*inch, self.label)
 
         i_w, i_h = self.page.BBox[2], self.page.BBox[3]
 
@@ -259,7 +272,7 @@ class DFXObj(Flowable):
         window_width = where[2]
         window_height = where[3]
         x_scale = float(where[2])/i_w
-        y_scale = float(where[3])/i_h
+        y_scale = float(where[3]-25)/i_h
 
         scale = x_scale
         if x_scale > y_scale:
@@ -529,15 +542,15 @@ class DFcrf(Flowable):
 
         where = (0, 0, self.size[0], self.size[1]-0.5)
         field_values = self.datarec.split('|')
-        id = int(field_values[6])
+        pid_num = int(field_values[6])
         visit_num = int(field_values[5])
         plate_num = int(field_values[4])
         is_lost = field_values[0] == '0'
 
-        self.header_callback(id, visit_num, plate_num)
+        self.header_callback(pid_num, visit_num, plate_num)
 
         for i in range(8):
-            bookmark = '{0}_{1}_{2}B{3}'.format(id, visit_num, plate_num, i)
+            bookmark = '{0}_{1}_{2}B{3}'.format(pid_num, visit_num, plate_num, i)
             canvas.bookmarkHorizontal(bookmark, -12, self.size[1]+inch)
 
         plate = self.study.plate(plate_num)
@@ -558,7 +571,7 @@ class DFcrf(Flowable):
             # skip bookmarks on lost records
             if not is_lost:
 
-                bookmark = '{0}_{1}_{2}_{3}'.format(id, visit_num, plate_num, field.number)
+                bookmark = '{0}_{1}_{2}_{3}'.format(pid_num, visit_num, plate_num, field.number)
                 canvas.linkRect(bookmark, bookmark,
                     (bb[0], -bb[1], bb[2], -bb[3]), relative=1)
 
@@ -606,7 +619,7 @@ class DFpdf(object):
             include_attached_images, prefer_background, shadow_pages, \
             format_pid, \
             include_chronological_audit, \
-            include_field_audit, fontsize, leading):
+            include_field_audit, fontsize, leading, include_secondaries):
         self.path = path
         self.name = name
         self.study = study
@@ -617,6 +630,7 @@ class DFpdf(object):
         self.shadow_pages = shadow_pages
         self.include_chronological_audit = include_chronological_audit
         self.include_field_audit = include_field_audit
+        self.include_secondaries = include_secondaries
         self.sql = sql
         self.doc = BaseDocTemplate(os.path.join(path, name)+'.pdf', showBoundary=1, pagesize=letter)
         template = PageTemplate('normal', [Frame(inch, inch, 6.5*inch, 8.4*inch)], onPageEnd=self.pageHeader)
@@ -641,8 +655,8 @@ class DFpdf(object):
         self.doc.subject = 'Closeout PDF {0}'.format(self.name)
         self.doc.build(self.content)
 
-    def setPageHeader(self, id, visit_num, plate_num):
-        self.headerId = id
+    def setPageHeader(self, pid_num, visit_num, plate_num):
+        self.headerId = pid_num
         self.headerVisitNum = visit_num
         self.headerPlateNum = plate_num
         self.headerVisitLabel = self.study.visitLabel(visit_num)
@@ -737,14 +751,14 @@ class DFpdf(object):
         lastPlate = None
 
         # Build and output by visit
-        for (id, visit_num, plate_num, plateorder, datarec) in records:
+        for (pid_num, visit_num, plate_num, plateorder, datarec) in records:
             visit_label = self.study.visitLabel(visit_num)
             page_label = self.study.pageLabel(visit_num, plate_num)
-            bookmark = '{0}_{1}_{2}'.format(id, visit_num, plate_num)
+            bookmark = '{0}_{1}_{2}'.format(pid_num, visit_num, plate_num)
             if lastID is None:
                 lastVisit = None
-                lastID = id
-                self.outlines.append([formatPID(self.format_pid, id), bookmark+'B0', 0, True])
+                lastID = pid_num
+                self.outlines.append([formatPID(self.format_pid, pid_num), bookmark+'B0', 0, True])
                 self.outlines.append(['By Visit', bookmark+'B1', 1, True])
             if lastVisit != visit_num:
                 lastVisit = visit_num
@@ -759,7 +773,7 @@ class DFpdf(object):
             domain = domainmap.label(plate_num)
             if domain not in domains:
                 domains[domain] = []
-            domains[domain].append((id, visit_num, plate_num,
+            domains[domain].append((pid_num, visit_num, plate_num,
                 page_label, visit_label))
 
         # Output by Domains
@@ -768,8 +782,8 @@ class DFpdf(object):
         lastDomain = None
         for (domain, items) in domainlist:
             lastVisit = None
-            for (id, visit_num, plate_num, page_label, visit_label) in items:
-                bookmark = '{0}_{1}_{2}'.format(id, visit_num, plate_num)
+            for (pid_num, visit_num, plate_num, page_label, visit_label) in items:
+                bookmark = '{0}_{1}_{2}'.format(pid_num, visit_num, plate_num)
                 if lastDomain is None:
                     self.outlines.append(['By Domain', bookmark+'B4', 1, True])
                 if lastDomain != domain:
@@ -790,13 +804,13 @@ class DFpdf(object):
     #########################################################################
     # Output Field Audit
     #########################################################################
-    def outputFieldAudit(self, width, id, visit_num, plate_num, auditOps):
+    def outputFieldAudit(self, width, pid_num, visit_num, plate_num, auditOps):
         styleH = self.styles['title']
         styleA = self.styles['audit_header']
         styleN = self.styles['default']
         styleI = self.styles['indented']
         plate = self.study.plate(plate_num)
-        bookmark = '{0}_{1}_{2}_FA'.format(id, visit_num, plate_num)
+        bookmark = '{0}_{1}_{2}_FA'.format(pid_num, visit_num, plate_num)
         title = Paragraph('<a name="{0}"/>Audit by Field'.format(bookmark), styleH)
         for field in plate.fieldList():
             if (self.redaction_dict and \
@@ -834,7 +848,7 @@ class DFpdf(object):
                 ('VALIGN', (0,0), (-1, -1), 'TOP'),
                 ('LINEABOVE', (0,0), (-1, -1), 1, lightgrey)])
             table.setStyle(tablestyle)
-            bookmark = '{0}_{1}_{2}_{3}_audit'.format(id, visit_num, plate_num, field.number)
+            bookmark = '{0}_{1}_{2}_{3}_audit'.format(pid_num, visit_num, plate_num, field.number)
             if title:
                 self.content.append(KeepTogether([title, Paragraph('<para><a name="{0}"/>{1}. {2}<para>'.format(bookmark, field.number, description), styleA), table]))
             else:
@@ -847,12 +861,12 @@ class DFpdf(object):
     #########################################################################
     # Chronological Audit
     #########################################################################
-    def outputAudit(self, width, id, visit_num, plate_num, auditRecs):
+    def outputAudit(self, width, pid_num, visit_num, plate_num, auditRecs):
         styleH = self.styles['title']
         styleA = self.styles['audit_header']
         styleN = self.styles['default']
         styleI = self.styles['indented']
-        bookmark = '{0}_{1}_{2}_AU'.format(id, visit_num, plate_num)
+        bookmark = '{0}_{1}_{2}_AU'.format(pid_num, visit_num, plate_num)
         title = Paragraph('<a name="{0}"/>Chronological Audit'.format(bookmark), styleH)
         last = None
         auditList = []
@@ -932,9 +946,10 @@ class DFpdf(object):
     #########################################################################
     # Output Attached Image
     #########################################################################
-    def outputAttachedImage(self, record, pid, visit_num, plate_num):
-        raster = record[4:16]
-        if self.include_attached_images.contains(plate_num) and raster[4:5] == '/':
+    def outputAttachedImage(self, rasters, pid_num, visit_num, plate_num):
+        rasters.sort()
+        for doc_num, (raster, is_primary) in enumerate(rasters, 1):
+            doc_type = 'Primary' if is_primary else 'Secondary'
             paths = []
             if self.shadow_pages:
                 paths.append(os.path.join(self.shadow_pages, raster))
@@ -943,22 +958,26 @@ class DFpdf(object):
                 if os.path.isfile(path) and os.access(path, os.R_OK):
                     break
             else:
-                print(' {0},{1},{2} image {3} not found or is not a readable file'.format(pid, visit_num, plate_num, path))
+                print(' {0},{1},{2} image {3} not found or is not a readable file'.format(pid_num, visit_num, plate_num, path))
                 return
 
             # Try to determine if this is a PDF file
             with open(path, 'rb') as f:
+                mtime = time.strftime('%Y/%m/%d %H:%M:%S',
+                        time.localtime(os.path.getmtime(path)))
                 if f.read(4) == str('%PDF'):
                     pages = PdfReader(path).pages
                     try:
                         pages = [pagexobj(x) for x in pages]
-                        for page in pages:
-                            self.content.append(DFXObj(None, page))
+                        for page_num, page in enumerate(pages, 1):
+                            label = 'Attached Document {0} ({1}, PDF, Page {2} of {3}) dated {4}'.format(doc_num, doc_type, page_num, len(pages), mtime)
+                            self.content.append(DFXObj(None, page, label))
                             self.content.append(PageBreak())
                     except:
-                        print(' {0},{1},{2} image {3} is incompatible PDF'.format(pid, visit_num, plate_num, path))
+                        print(' {0},{1},{2} image {3} is incompatible PDF'.format(pid_num, visit_num, plate_num, path))
                 else:
-                    self.content.append(DFimage(None, path))
+                    label = 'Attached Document {0} ({1}, Single Image) dated {2}'.format(doc_num, doc_type, mtime)
+                    self.content.append(DFimage(None, path, label))
                     self.content.append(PageBreak())
 
     #########################################################################
@@ -968,7 +987,7 @@ class DFpdf(object):
         styleH = self.styles['title']
         styleN = self.styles['default']
         field_values = record.split('|')
-        id = int(field_values[6])
+        pid_num = int(field_values[6])
         visit_num = int(field_values[5])
         plate_num = int(field_values[4])
         is_lost = field_values[0] == '0'
@@ -1016,7 +1035,7 @@ class DFpdf(object):
                     # Make sure we protect data value characters like <, >, &
                     list_value = self.escape_string(list_value)
 
-                bookmark = '{0}_{1}_{2}_{3}'.format(id, visit_num, plate_num, field.number)
+                bookmark = '{0}_{1}_{2}_{3}'.format(pid_num, visit_num, plate_num, field.number)
                 if self.include_field_audit:
                     fieldValueList.append([
                         Paragraph('<para alignment="right"><a name="{0}"/>{1}.</para>'.format(bookmark, field.number), styleN),
@@ -1028,7 +1047,7 @@ class DFpdf(object):
                         Paragraph(description, styleN),
                         Paragraph('<para>{0}</para>'.format(list_value), styleN)])
 
-        bookmark = '{0}_{1}_{2}_DA'.format(id, visit_num, plate_num)
+        bookmark = '{0}_{1}_{2}_DA'.format(pid_num, visit_num, plate_num)
         self.content.append(Paragraph('<a name="{0}"/>Data Field Values'.format(bookmark), styleH))
 
         if is_lost:
@@ -1052,16 +1071,23 @@ class DFpdf(object):
     # outputPatientRecord - Output a patient record, including CRF,
     # list of data values, chronological audit and field based audit
     ###########################################################################
-    def outputPatientRecord(self, id, visit_num, plate_num, datarec):
+    def outputPatientRecord(self, pid_num, visit_num, plate_num, datarec):
         self.outputCRFImage(datarec)
-        self.outputAttachedImage(datarec, id, visit_num, plate_num)
+        raster = datarec[4:16]
+        if self.include_attached_images.contains(plate_num) and \
+                raster[4:5] == '/':
+            rasters = [(raster, True)]
+            if self.include_secondaries:
+                rasters.extend([(r, False) for r in \
+                        self.find_secondaries(pid_num, visit_num, plate_num)])
+            self.outputAttachedImage(rasters, pid_num, visit_num, plate_num)
         self.outputFieldValues(6.4*inch, datarec)
         if self.include_chronological_audit or self.include_field_audit:
-            auditOps = self.parseAudit(id, visit_num, plate_num)
+            auditOps = self.parseAudit(pid_num, visit_num, plate_num)
         if self.include_chronological_audit:
-            self.outputAudit(6.4*inch, id, visit_num, plate_num, auditOps)
+            self.outputAudit(6.4*inch, pid_num, visit_num, plate_num, auditOps)
         if self.include_field_audit:
-            self.outputFieldAudit(6.4*inch, id, visit_num, plate_num, auditOps)
+            self.outputFieldAudit(6.4*inch, pid_num, visit_num, plate_num, auditOps)
 
     ###########################################################################
     # escape_string - Escape special characters
@@ -1073,9 +1099,19 @@ class DFpdf(object):
         return s;
 
     ###########################################################################
+    # find_secondaries - Get a list of secondary raster images for keys
+    ###########################################################################
+    def find_secondaries(self, pid_num, visit_num, plate_num):
+        secondaries_cursor = self.sql.execute('''
+            select raster from secondaries
+            where pid=? and visit=? and plate=?''',
+            (pid_num, visit_num, plate_num))
+        return [r[0] for r in secondaries_cursor.fetchall()]
+
+    ###########################################################################
     # parseAudit: Convert Audit to human readable form
     ###########################################################################
-    def parseAudit(self, id, visit_num, plate_num):
+    def parseAudit(self, pid_num, visit_num, plate_num):
         auditRec = namedtuple('auditRec', '''who, tdate, ttime, status, op,
             type, funiqueid, fnum, metafnum, code, reason, desc, oldval, newval,
             oldvaldec, newvaldec''')
@@ -1088,7 +1124,7 @@ class DFpdf(object):
             on a.fdescid = s.id
             where a.pid=? and a.visit=? and a.plate=?
             order by a.tdate, a.ttime''', \
-            (id, visit_num, plate_num))
+            (pid_num, visit_num, plate_num))
         auditRecs = map(auditRec._make, audit_cursor.fetchall())
 
         # Group audit records into data/reason/qc transactions. Sometimes
@@ -1307,6 +1343,7 @@ def main():
     visits = datafax.rangelist.RangeList(0, 65535)
     levels = datafax.rangelist.RangeList(1, 7)
     include_attached_images = datafax.rangelist.RangeList(1, 500)
+    include_secondaries = False
     studydir = None
     format_pid = None
     pid_list_only = False
@@ -1320,7 +1357,7 @@ def main():
                  'include-attached-images=', 'exclude-chronological-audit',
                  'exclude-field-audit', 'pid-list-only',
                  'prefer-background=', 'shadow-pages=', 'redaction=',
-                 'format-pid=', 'fontsize=', 'leading='])
+                 'format-pid=', 'fontsize=', 'leading=', 'include-secondaries'])
     except getopt.GetoptError, err:
         print(err)
         sys.exit(2)
@@ -1370,6 +1407,8 @@ def main():
             quiet = True
         if o == '--pid-list-only':
             pid_list_only = True
+        if o == '--include-secondaries':
+            include_secondaries = True
             
     # Make sure we have a study specified
     if not studydir:
@@ -1389,6 +1428,12 @@ def main():
     centerdb = study.Centers()
 
     sql = sqlite3.connect(db)
+    if include_secondaries:
+        cursor = sql.execute('select name from sqlite_master where type=\'table\' and name=\'secondaries\'')
+        if len(cursor.fetchall()) == 0:
+            print('WARNING: --include-secondaries specified, but intermediate database does not')
+            print('         contain any secondary image data')
+            include_secondaries = False
 
     clauses = []
     pid_clause = patients.toSQL('pid')
@@ -1445,7 +1490,8 @@ def main():
         pdf = DFpdf(str(center_number), formatPID(format_pid, pid[0]),
                 sql, study, blinded, redaction_dict,
             include_attached_images, prefer_background, shadow_pages, format_pid,
-            include_chronological_audit, include_field_audit, fontsize, leading)
+            include_chronological_audit, include_field_audit, fontsize,
+            leading, include_secondaries)
 
         rec_cursor = sql.execute(rec_select, (pid))
         dataRecs = rec_cursor.fetchall()
@@ -1453,7 +1499,7 @@ def main():
         sortedRecs=[]
 
         # For each record, get its plate display order
-        for (id, visit_num, plate_num, datarec) in dataRecs:
+        for (pid_num, visit_num, plate_num, datarec) in dataRecs:
             # Skip secondaries
             if datarec[0] > '3':
                 continue
@@ -1463,7 +1509,7 @@ def main():
             else:
                 plateorder = visitentry.plateOrder(plate_num)
 
-            sortedRecs.append((id, visit_num, plate_num, plateorder, datarec))
+            sortedRecs.append((pid_num, visit_num, plate_num, plateorder, datarec))
 
         # Sort by visit, plate display order
         sortedRecs.sort(key=lambda x: (x[1], x[3], x[2])) # Visit, order, plate
@@ -1471,10 +1517,10 @@ def main():
         pdf.generateBookmarksForPatient(sortedRecs)
 
         # Now traverse sorted list and output records
-        for (id, visit_num, plate_num, plateorder, datarec) in sortedRecs:
+        for (pid_num, visit_num, plate_num, plateorder, datarec) in sortedRecs:
             if not quiet:
-                print("  ", id, visit_num, plate_num)
-            pdf.outputPatientRecord(id, visit_num, plate_num, datarec)
+                print("  ", pid_num, visit_num, plate_num)
+            pdf.outputPatientRecord(pid_num, visit_num, plate_num, datarec)
 
         # Actually build the PDF file based on the content generated above
         print('Writing out PDF file...')

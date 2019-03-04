@@ -1,6 +1,7 @@
+#!/opt/datafax/PHRI/python27
 #
-# Copyright 2017, Population Health Research Institute
-# Copyright 2017, Martin Renters
+# Copyright 2017-2019, Population Health Research Institute
+# Copyright 2017-2019, Martin Renters
 #
 # This file is part of the DataFax Toolkit.
 #
@@ -71,6 +72,7 @@ def main():
     sql.execute('''pragma locking_mode=EXCLUSIVE''')
     sql.execute('''pragma synchronous=OFF''')
     sql.execute('''drop table if exists data''')
+    sql.execute('''drop table if exists secondaries''')
     sql.execute('''drop table if exists audit''')
     sql.execute('''drop table if exists shared_strings''')
     sql.execute('''create table data (
@@ -79,6 +81,11 @@ def main():
         plate int not null,
         level int not null,
         data text)''')
+    sql.execute('''create table secondaries (
+        pid int not null,
+        visit int not null,
+        plate int not null,
+        raster text)''')
     sql.execute('''create table audit (
         pid int not null,
         visit int not null,
@@ -120,24 +127,30 @@ def main():
         print('  ', p)
         if patients:
             params = [os.path.join(datafax_dir, 'bin', 'DFexport.rpc'),
-                    '-s', 'primary', '-I', patients,
+                    '-s', 'primary,secondary', '-I', patients,
                     str(study_num), p, '-']
         else:
             params = [os.path.join(datafax_dir, 'bin', 'DFexport.rpc'),
-                    '-s', 'primary', str(study_num), p, '-']
+                    '-s', 'primary,secondary', str(study_num), p, '-']
         proc = subprocess.Popen(params, stdout=subprocess.PIPE)
         for data in proc.stdout:
             data = to_unicode(data)
             data = data.rstrip('\n')
             fields = data.split('|')
 
-            id = int(fields[6])
+            pid = int(fields[6])
             visit = int(fields[5])
             plate = int(fields[4])
+            status = int(fields[0])
             level = int(fields[1])
+            raster = fields[2]
 
-            sql.execute('''insert into data values(?, ?, ?, ?, ?)''', \
-                (id, visit, plate, level, data))
+            if status <= 3:
+                sql.execute('''insert into data values(?, ?, ?, ?, ?)''', \
+                    (pid, visit, plate, level, data))
+            elif raster[4] == '/':
+                sql.execute('''insert into secondaries values(?, ?, ?, ?)''',
+                    (pid, visit, plate, fields[2]))
         sql.commit()
     proc.wait()
 
@@ -154,20 +167,20 @@ def main():
     for data in proc.stdout:
         data = to_unicode(data)
         data = data.rstrip('\n')
-        (op, date, time, who, id, visit, plate, uniqueid, metafnum, \
+        (op, date, time, who, pid, visit, plate, uniqueid, metafnum, \
                 status, level, maxlevel, codevalue, codetext, oldval, newval, \
                 fnum, fdesc, dec_oldval, dec_newval) = data.split('|')
 
-        type = 'd'
+        rec_type = 'd'
         uniqueid = int(uniqueid)
         if uniqueid > 0:
-            type = 'q'        # QC
+            rec_type = 'q'        # QC
         elif uniqueid < 0:
             uniqueid = -uniqueid
-            type = 'r'        # Reason
+            rec_type = 'r'        # Reason
 
 
-        if type == 'd':     # Reset meta field number for data fields
+        if rec_type == 'd':     # Reset meta field number for data fields
             uniqueid = int(metafnum)
             metafnum = '0'
 
@@ -181,14 +194,15 @@ def main():
             ssid_seq += 1
 
         sql.execute('''insert into audit values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', \
-                (id, visit, plate, op, date, time, who, type, status, level, \
-                codevalue, codetext, metafnum, uniqueid, fnum, ssid, oldval, newval,\
-                dec_oldval, dec_newval))
+                (pid, visit, plate, op, date, time, who, rec_type, status, \
+                    level, codevalue, codetext, metafnum, uniqueid, fnum, \
+                    ssid, oldval, newval, dec_oldval, dec_newval))
     sql.commit()
     proc.wait()
 
     print('Creating index on data...')
     sql.execute('''create index data_keys on data(pid, visit, plate)''')
+    sql.execute('''create index secondary_keys on secondaries(pid, visit, plate)''')
     print('Creating index on audit table...')
     sql.execute('''create index audit_keys on audit(pid, visit, plate)''')
     sql.close()
