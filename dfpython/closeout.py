@@ -546,6 +546,7 @@ class DFcrf(Flowable):
         visit_num = int(field_values[5])
         plate_num = int(field_values[4])
         is_lost = field_values[0] == '0'
+        is_deleted = field_values[0] == '7'
 
         self.header_callback(pid_num, visit_num, plate_num)
 
@@ -558,6 +559,7 @@ class DFcrf(Flowable):
             print('Plate ', plate_num, ' does not exist in study.')
             return
 
+        canvas.saveState()
         self.drawBackground(where, visit_num, plate)
 
         for field in plate.fieldList():
@@ -569,7 +571,7 @@ class DFcrf(Flowable):
                 continue
 
             # skip bookmarks on lost records
-            if not is_lost:
+            if not is_lost and not is_deleted:
 
                 bookmark = '{0}_{1}_{2}_{3}'.format(pid_num, visit_num, plate_num, field.number)
                 canvas.linkRect(bookmark, bookmark,
@@ -586,8 +588,8 @@ class DFcrf(Flowable):
                     (self.hide_blinded and field.isBlinded()):
                 self.drawBoxes(field, black, black)
             else:
-                if is_lost:
-                    self.drawBoxes(field, darkslategrey, white)
+                if is_lost or is_deleted:
+                    self.drawBoxes(field, dimgrey, white)
                 else:
                     missingLabel = self.study.missingValueLabel(value)
                     if missingLabel is not None:
@@ -595,6 +597,19 @@ class DFcrf(Flowable):
                     else:
                         (box, decoded_value) = field.decode(value)
                         self.drawField(field, value, decoded_value, box)
+
+        canvas.restoreState()
+        if is_lost or is_deleted:
+            if is_lost:
+                text = 'NO DATA'
+            else:
+                text = 'DELETED RECORD'
+            canvas.setFont('Helvetica', 60)
+            canvas.setStrokeColor(black)
+            canvas.setLineWidth(2)
+            canvas.translate(where[2]/2, (where[3]+0.5)/2)
+            canvas.rotate(45)
+            canvas.drawCentredString(30, 0, text, mode=1)
 
 
 ##############################################################################
@@ -905,6 +920,11 @@ class DFpdf(object):
                     Paragraph('<para alignment="right">- .</para>', styleN),
                     Paragraph('{0}'.format(rec.desc), styleN),
                     changes])
+            elif rec.fnum == 0:
+                auditList.append([
+                    Paragraph('<para alignment="right"></para>', styleN),
+                    Paragraph('{0}'.format(rec.desc), styleN),
+                    changes])
             else:
                 auditList.append([
                     Paragraph('<para alignment="right">{0}.</para>'.format(rec.fnum), styleN),
@@ -991,13 +1011,14 @@ class DFpdf(object):
         visit_num = int(field_values[5])
         plate_num = int(field_values[4])
         is_lost = field_values[0] == '0'
+        is_deleted = field_values[0] == '7'
 
         plate = self.study.plate(plate_num)
         if plate is None:
             print('Plate ', plate_num, ' does not exist in study.')
             return
 
-        if not is_lost:
+        if not is_lost and not is_deleted:
             fieldValueList = [[
                 Paragraph('<para alignment="right"><b>Field</b></para>', styleN),
                 Paragraph('<b>Description</b>', styleN),
@@ -1054,7 +1075,11 @@ class DFpdf(object):
             reason = self.lost_codes.get(field_values[7], 'Other')
             if field_values[8]:
                 reason = reason + ' [' + field_values[8] + ']'
-            self.content.append(Paragraph('Record Marked Lost: {0}'.format(reason), styleN))
+            self.content.append(Paragraph('Record Marked Lost<br/><i>{0}</i>'.format(
+                self.escape_string(reason)), styleN))
+        elif is_deleted:
+            self.content.append(Paragraph('Record Deleted<br/><i>{0}</i>'.format(
+                self.escape_string(field_values[7])), styleN))
         else:
             table = Table(fieldValueList, colWidths=[
                 0.1*width,
@@ -1141,15 +1166,31 @@ class DFpdf(object):
                     last = rec
                     lastTime = thisTime
 
+            funiqueid = rec.funiqueid
+
             if rec.fnum is None or rec.fnum == '':
                 fnum = 0
             else:
                 fnum = int(rec.fnum)
 
+            # For deleted records, get reason from DFPLATE and mark
+            # it for all fields (funique=0 and fnum=0)
+            if rec.type == 'r' and rec.funiqueid <5100 and rec.metafnum == 0:
+                funiqueid = 0
+                fnum = 0
+            
+            # For key changes, get reason from PID and mark it for all
+            # fields
+            #if rec.type == 'r' and rec.op == 'N' and rec.fnum == 7 and \
+            #        rec.reason[:12] == 'Keys changed':
+            #    funiqueid = 0
+            #    fnum = 0
+            #    print('KeyChange ', rec)
+
             groupedAuditRecs.append(auditRec(rec.who, \
                     rec.tdate[0:4]+'/'+rec.tdate[4:6]+'/'+rec.tdate[6:8], \
                     last.ttime[0:2]+':'+last.ttime[2:4]+':'+last.ttime[4:6], \
-                    rec.status, rec.op, rec.type, rec.funiqueid, fnum, \
+                    rec.status, rec.op, rec.type, funiqueid, fnum, \
                     rec.metafnum, rec.code, rec.reason, rec.desc, rec.oldval, \
                     rec.newval, rec.oldvaldec, rec.newvaldec))
 
@@ -1276,17 +1317,22 @@ class DFpdf(object):
             # REASON RECORDS
             ###############################################################
             if rec.type == 'r':
-                if rec.metafnum not in [1, 10]:
+                if rec.metafnum not in [0, 1, 10]:
                     continue
                 if rec.op == 'N' or rec.op == 'C':
                     s = self.study.reasonStatus(rec.status)
+                    if rec.metafnum == 0:
+                        ops.append('<i>{0}</i>'.format(rec.reason))
                     if rec.metafnum == 1:
                         ops.append('Reason Status: <i>{0}</i>'.format(s))
                     if rec.metafnum == 10:
                         newval = self.escape_string(rec.newval)
                         ops.append('Reason Text: <i>{0}</i>'.format(newval))
                 elif rec.op == 'D':
-                    ops.append('Reason Deleted')
+                    if rec.metafnum == 0 and rec.funiqueid < 5100:
+                        ops.append('<i>{0}</i>'.format(rec.reason))
+                    else:
+                        ops.append('Reason Deleted')
     
         # Add last transaction to list
         if last is not None and ops:
@@ -1344,6 +1390,7 @@ def main():
     levels = datafax.rangelist.RangeList(1, 7)
     include_attached_images = datafax.rangelist.RangeList(1, 500)
     include_secondaries = False
+    include_deleted = False
     studydir = None
     format_pid = None
     pid_list_only = False
@@ -1357,7 +1404,8 @@ def main():
                  'include-attached-images=', 'exclude-chronological-audit',
                  'exclude-field-audit', 'pid-list-only',
                  'prefer-background=', 'shadow-pages=', 'redaction=',
-                 'format-pid=', 'fontsize=', 'leading=', 'include-secondaries'])
+                 'format-pid=', 'fontsize=', 'leading=', 'include-secondaries',
+                 'include-deleted'])
     except getopt.GetoptError, err:
         print(err)
         sys.exit(2)
@@ -1409,6 +1457,8 @@ def main():
             pid_list_only = True
         if o == '--include-secondaries':
             include_secondaries = True
+        if o == '--include-deleted':
+            include_deleted = True
             
     # Make sure we have a study specified
     if not studydir:
@@ -1435,6 +1485,13 @@ def main():
             print('         contain any secondary image data')
             include_secondaries = False
 
+    if include_deleted:
+        cursor = sql.execute('select name from sqlite_master where type=\'table\' and name=\'deleted\'')
+        if len(cursor.fetchall()) == 0:
+            print('WARNING: --include-deleted specified, but intermediate database does not')
+            print('         contain any deleted record data')
+            include_deleted = False
+
     clauses = []
     pid_clause = patients.toSQL('pid')
     if pid_clause:
@@ -1460,7 +1517,7 @@ def main():
         from data ''' + where_clause + ''' order by pid''')
 
     # Build Select statement for fetching records
-    clauses = ['pid=?']
+    clauses = ['pid=:pid']
     if plate_clause:
         clauses.append(plate_clause)
     if visit_clause:
@@ -1471,6 +1528,11 @@ def main():
         select pid, visit, plate, data
         from data
         where ''' + ' and '.join(clauses)
+    if include_deleted:
+        rec_select = rec_select + '''
+            union select pid, visit, plate, data
+            from deleted
+            where ''' + ' and '.join(clauses)
 
     # Now loop through each patient and generate output pages for them
     for pid in pid_cursor:
@@ -1493,16 +1555,13 @@ def main():
             include_chronological_audit, include_field_audit, fontsize,
             leading, include_secondaries)
 
-        rec_cursor = sql.execute(rec_select, (pid))
+        rec_cursor = sql.execute(rec_select, {'pid': pid[0]})
         dataRecs = rec_cursor.fetchall()
         visitmap = study.visitMap()
         sortedRecs=[]
 
         # For each record, get its plate display order
         for (pid_num, visit_num, plate_num, datarec) in dataRecs:
-            # Skip secondaries
-            if datarec[0] > '3':
-                continue
             visitentry = visitmap.entry(visit_num)
             if visitentry is None:
                 plateorder = 0

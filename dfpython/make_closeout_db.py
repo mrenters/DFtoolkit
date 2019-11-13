@@ -40,6 +40,34 @@ def to_unicode(s):
         u = s.decode('latin-1')
     return u
 
+def potential_deleted(sql, pid, visit, plate, level, reason, force_update):
+    data_cursor = sql.execute(
+            'select 1 from data where pid=? and visit=? and plate=?',
+            (pid, visit, plate))
+    # Does Data record exist?
+    if data_cursor.fetchone():
+        #print('{0} {1} {2} deletion reason, but record exists'.format(pid,visit,plate))
+        return
+
+    # Create new data record
+    record = '7|{0}|0000/0000000|0|{1}|{2}|{3}|{4}'.format(
+            level, plate, visit, pid, reason)
+    data_cursor = sql.execute(
+            'select 1 from deleted where pid=? and visit=? and plate=?',
+            (pid, visit, plate))
+    # Does deleted record already exist?
+    if data_cursor.fetchone():
+        #print('{0} {1} {2} deletion reason exists'.format(pid,visit,plate))
+        if force_update:
+            data_cursor = sql.execute(
+                    'update deleted set data=? where pid=? and visit=? and plate=?', (record, pid, visit, plate))
+    else:
+        #print('{0} {1} {2} new deletion reason'.format(pid,visit,plate))
+        data_cursor = sql.execute(
+                    'insert into deleted values(?, ?, ?, ?, ?);',
+                    (pid, visit, plate, level, record))
+
+
 def main():
     sstrings = {}
     ssid_seq = 0
@@ -72,10 +100,17 @@ def main():
     sql.execute('''pragma locking_mode=EXCLUSIVE''')
     sql.execute('''pragma synchronous=OFF''')
     sql.execute('''drop table if exists data''')
+    sql.execute('''drop table if exists deleted''')
     sql.execute('''drop table if exists secondaries''')
     sql.execute('''drop table if exists audit''')
     sql.execute('''drop table if exists shared_strings''')
     sql.execute('''create table data (
+        pid int not null,
+        visit int not null,
+        plate int not null,
+        level int not null,
+        data text)''')
+    sql.execute('''create table deleted (
         pid int not null,
         visit int not null,
         plate int not null,
@@ -127,11 +162,11 @@ def main():
         print('  ', p)
         if patients:
             params = [os.path.join(datafax_dir, 'bin', 'DFexport.rpc'),
-                    '-s', 'primary,secondary', '-I', patients,
+                    '-s', 'lost,primary,secondary', '-I', patients,
                     str(study_num), p, '-']
         else:
             params = [os.path.join(datafax_dir, 'bin', 'DFexport.rpc'),
-                    '-s', 'primary,secondary', str(study_num), p, '-']
+                    '-s', 'lost,primary,secondary', str(study_num), p, '-']
         proc = subprocess.Popen(params, stdout=subprocess.PIPE)
         for data in proc.stdout:
             data = to_unicode(data)
@@ -153,6 +188,11 @@ def main():
                     (pid, visit, plate, fields[2]))
         sql.commit()
     proc.wait()
+
+    print('Creating index on data...')
+    sql.execute('''create index data_keys on data(pid, visit, plate)''')
+    sql.execute('''create index deleted_keys on deleted(pid, visit, plate)''')
+    sql.execute('''create index secondary_keys on secondaries(pid, visit, plate)''')
 
     print('Reading audit information...')
     if patients:
@@ -197,12 +237,16 @@ def main():
                 (pid, visit, plate, op, date, time, who, rec_type, status, \
                     level, codevalue, codetext, metafnum, uniqueid, fnum, \
                     ssid, oldval, newval, dec_oldval, dec_newval))
+
+        # Keep track of deleted record reasons
+        if rec_type == 'r' and uniqueid < 5100 and metafnum == '0':
+            potential_deleted(sql, pid, visit, plate, level, codetext, True)
+        if rec_type == 'd' and fnum == '' and status == '7':
+            potential_deleted(sql, pid, visit, plate, level, '', False)
+
     sql.commit()
     proc.wait()
 
-    print('Creating index on data...')
-    sql.execute('''create index data_keys on data(pid, visit, plate)''')
-    sql.execute('''create index secondary_keys on secondaries(pid, visit, plate)''')
     print('Creating index on audit table...')
     sql.execute('''create index audit_keys on audit(pid, visit, plate)''')
     sql.close()
