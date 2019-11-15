@@ -644,10 +644,10 @@ class AnnotatedCRF(object):
             canvas.rect(r.left-2, -r.top+2, r.width+4, -(r.height+4), fill=1)
             canvas.setFillColor(color[1])
             field_str = str(field.number)
-            for s in [20,10,8]:
+            for s in [20,10,8,7]:
                 fmp = s/3
                 bmp = r.height/2
-                if canvas.stringWidth(field_str, 'Helvetica-Bold', s) > r.width:
+                if s != 7 and canvas.stringWidth(field_str, 'Helvetica-Bold', s) > r.width:
                     continue
                 canvas.setFont('Helvetica-Bold', s)
                 canvas.drawCentredString(r.left+(r.width/2), -(r.top+bmp+fmp), str(field.number))
