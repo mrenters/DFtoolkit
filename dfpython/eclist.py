@@ -265,7 +265,7 @@ def EC2Excel(config):
 def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], "s:x:",
-            [ 'studydir=', 'xls='])
+            [ 'studydir=', 'xls=', 'version'])
     except getopt.GetoptError, err:
         print(str(err))
         sys.exit(2)
@@ -277,6 +277,9 @@ def main():
             config['studydir'] = a
         if o in ("-x", "--xls"):
             config['xlsx'] = a
+        if o == '--version':
+            print(datafax.__version__)
+            sys.exit(0)
 
     if not config.get('studydir'):
         print('--studydir not specified')

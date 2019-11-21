@@ -774,7 +774,7 @@ def main():
         opts, args = getopt.getopt(sys.argv[1:], 's:o:p:',
                 ['studydir=', 'output=', 'plates=', 'priority-file=',
                  'prefer-background=', 'legal', 'editchecks', 'lut',
-                 'help', 'lowres'])
+                 'help', 'lowres', 'version'])
     except getopt.GetoptError, err:
         print(err)
         sys.exit(2)
@@ -807,6 +807,9 @@ def main():
             print('--lut                         List first "LUT" field enter EC in coding column')
             print('--prefer-background bkgd(s)   Prefer listed backgrounds (comma separated)')
             print('--lowres                      Use low res backgrounds only (for old studies)')
+            sys.exit(0)
+        if o == '--version':
+            print(datafax.__version__)
             sys.exit(0)
 
     if not studydir:

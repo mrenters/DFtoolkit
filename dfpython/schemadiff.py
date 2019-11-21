@@ -24,6 +24,7 @@ from __future__ import division
 from __future__ import unicode_literals
 from __future__ import print_function
 
+import datafax
 import getopt
 import json
 import sys
@@ -891,8 +892,8 @@ def compareStudies(xls, src, dst, user_only=True):
 ##############################################################################
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "o:c:x:u",
-                [ "original=", "current=", "xlsx=", "useronly" ])
+        opts, args = getopt.getopt(sys.argv[1:], 'o:c:x:u',
+                [ 'original=', 'current=', 'xlsx=', 'useronly', 'version' ])
     except getopt.GetoptError, err:
         print(str(err))
         sys.exit(2)
@@ -903,14 +904,17 @@ def main():
     user_only = False
 
     for o, a in opts:
-        if o in ("-o", "--original"):
+        if o in ('-o', '--original'):
             src = a
-        elif o in ("-c", "--current"):
+        elif o in ('-c', '--current'):
             dst = a
-        elif o in ("-x", "--xlsx"):
+        elif o in ('-x', '--xlsx'):
             excel = a
-        elif o in ("-u", "--useronly"):
+        elif o in ('-u', '--useronly'):
             user_only = True
+        elif o == '--version':
+            print(datafax.__version__)
+            sys.exit(0)
 
     # Make sure we have at least the two DFsetup files
     if not src:

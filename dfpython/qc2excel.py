@@ -825,7 +825,7 @@ def main():
               'percent', 'site-mode', 'email=', 'email-to=', 'email-from=',
               'xlsx=', 'include-country', 'include-region',
               'priority-file=', 'color-by-priority', 'creation-date',
-              'timestamps', 'help'])
+              'timestamps', 'help', 'version'])
     except getopt.GetoptError, err:
         print(str(err))
         sys.exit(2)
@@ -906,7 +906,16 @@ def main():
             print('--timestamps          Show creation/modification/resolution user and timestamps')
             print('--email-to addr       Sets the email address to send report to.')
             print('--email-from addr     Sets the email address report will appear to come from.')
+            print('--version             Print version number and exit')
 
+            # Flush stdin if it is coming from a file or pipe
+            if not sys.stdin.isatty():
+                for line in sys.stdin:
+                    pass
+            sys.exit(0)
+
+        if o == "--version":
+            print(datafax.__version__)
             # Flush stdin if it is coming from a file or pipe
             if not sys.stdin.isatty():
                 for line in sys.stdin:

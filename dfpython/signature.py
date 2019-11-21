@@ -423,7 +423,7 @@ def main():
 
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'd:s:I:P:V:',
-                ['db=', 'studydir=', 'ids=', 'plates=', 'visits=' ])
+                ['db=', 'studydir=', 'ids=', 'plates=', 'visits=', 'version' ])
     except getopt.GetoptError, err:
         print(err)
         sys.exit(2)
@@ -439,6 +439,9 @@ def main():
             siglog.setVisits(a)
         if o in ('-s', '--studydir'):
             studydir = a
+        if o == '--version':
+            print(datafax.__version__)
+            sys.exit(0)
             
     if studydir is None:
         print('No --studydir specified')

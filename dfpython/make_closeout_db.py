@@ -24,6 +24,7 @@ from __future__ import print_function
 
 import os
 import codecs
+import datafax
 import getopt
 import sys
 import sqlite3
@@ -77,7 +78,7 @@ def main():
 
     try:
         opts, args = getopt.getopt(sys.argv[1:], 's:d:I:',
-            ['study=', 'db=', 'ids='])
+            ['study=', 'db=', 'ids=', 'version'])
     except getopt.GetoptError, err:
         print(err)
         sys.exit(2)
@@ -89,6 +90,9 @@ def main():
             db = a
         if o in ('-I', '--ids'):
             patients = a
+        if o == '--version':
+            print(datafax.__version__)
+            sys.exit(0)
 
     if study_num is None:
         print('No study specified')

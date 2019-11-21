@@ -1405,7 +1405,7 @@ def main():
                  'exclude-field-audit', 'pid-list-only',
                  'prefer-background=', 'shadow-pages=', 'redaction=',
                  'format-pid=', 'fontsize=', 'leading=', 'include-secondaries',
-                 'include-deleted'])
+                 'include-deleted', 'version'])
     except getopt.GetoptError, err:
         print(err)
         sys.exit(2)
@@ -1459,6 +1459,9 @@ def main():
             include_secondaries = True
         if o == '--include-deleted':
             include_deleted = True
+        if o == '--version':
+            print(datafax.__version__)
+            sys.exit(0)
             
     # Make sure we have a study specified
     if not studydir:
