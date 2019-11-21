@@ -1061,7 +1061,7 @@ class DFpdf(object):
                     fieldValueList.append([
                         Paragraph('<para alignment="right"><a name="{0}"/>{1}.</para>'.format(bookmark, field.number), styleN),
                         Paragraph(description, styleN),
-                        Paragraph('<para><a href="{0}_audit" color="blue">{1}</a></para>'.format(bookmark, list_value), styleN)])
+                        Paragraph('<para><a href="#{0}_audit" color="blue">{1}</a></para>'.format(bookmark, list_value), styleN)])
                 else:
                     fieldValueList.append([
                         Paragraph('<para alignment="right"><a name="{0}"/>{1}.</para>'.format(bookmark, field.number), styleN),

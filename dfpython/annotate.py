@@ -354,7 +354,7 @@ class AnnotatedCRF(object):
             description = field.description
             if description is None:
                 description = ''
-            bookmark = 'P{0}F{1}'.format(plate.number(),field.number)
+            bookmark = '#P{0}F{1}'.format(plate.number(),field.number)
             cols.append([
                 Paragraph('<a href="{0}" color="blue">{1}</a>'.format(bookmark, field.name), styleN),
                 Paragraph(description, styleN),
