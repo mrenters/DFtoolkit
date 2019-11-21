@@ -1,7 +1,7 @@
 #!/bin/sh
 #
 # Copyright 2017, Population Health Research Institute
-# Copyright 2017, Martin Renters
+# Copyright 2019, Martin Renters
 #
 # This file is part of the DataFax Toolkit.
 #
@@ -38,4 +38,4 @@ then
 fi
 shift
 
-/opt/datafax/PHRI/python27 $DATAFAX_DIR/PHRI/annotate.py --studydir $STUDY_DIR "$@"
+/opt/DFtoolkit/bin/annotate --studydir $STUDY_DIR "$@"

@@ -1,7 +1,7 @@
 #!/bin/sh
 #
 # Copyright 2016-2017, Population Health Research Institute
-# Copyright 2016-2017, Martin Renters
+# Copyright 2016-2019, Martin Renters
 #
 # This file is part of the DataFax Toolkit.
 #
@@ -37,5 +37,5 @@ then
 	exit 2
 fi
 OUTFILE="$STUDY_DIR/work/eclist.xlsx"
-/opt/datafax/PHRI/python27 $DATAFAX_DIR/PHRI/eclist.py --studydir $STUDY_DIR --xls $OUTFILE
+/opt/DFtoolkit/bin/eclist --studydir $STUDY_DIR --xls $OUTFILE
 echo "Output file is: $OUTFILE"

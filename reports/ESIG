@@ -1,7 +1,7 @@
 #!/bin/sh
 #
 # Copyright 2015-2017, Population Health Research Institute
-# Copyright 2015-2017, Martin Renters
+# Copyright 2015-2019, Martin Renters
 #
 # This file is part of the DataFax Toolkit.
 #
@@ -37,7 +37,7 @@ fi
 echo "STUDY_DIR=$STUDY_DIR"
 
 $DATAFAX_DIR/bin/DFaudittrace -s $STUDY \
-  -N -d 19900101-today | $DATAFAX_DIR/PHRI/sigtrack \
+  -N -d 19900101-today | /opt/DFtoolkit/bin/sigtrack \
 	--config $STUDY_DIR/lib/esig.config \
 	--studydir $STUDY_DIR \
 	--db $STUDY_DIR/work/esig.db \

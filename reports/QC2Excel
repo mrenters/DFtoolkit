@@ -1,7 +1,7 @@
 #!/bin/sh
 #
 # Copyright 2016-2017, Population Health Research Institute
-# Copyright 2016-2017, Martin Renters
+# Copyright 2016-2019, Martin Renters
 #
 # This file is part of the DataFax Toolkit.
 #
@@ -45,6 +45,6 @@ fi
 
 $DATAFAX_DIR/bin/DFexport.rpc -s all $STUDY 511 - | \
 	sort -t\| -n -k 9,9 -k 7,7 -k 6,6 -k 5,5 -k 8,8 | \
-	$DATAFAX_DIR/PHRI/python27 $DATAFAX_DIR/PHRI/qc2excel.py \
+	/opt/DFtoolkit/bin/qc2excel \
 		--studydir=$STUDYDIR --xlsx=$STUDYDIR/work/$OUTFILE "$@"
 

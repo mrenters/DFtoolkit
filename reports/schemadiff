@@ -66,5 +66,5 @@ fi
 echo "Processing schema differences from $2 to $3..."
 
 OUTFILE="$STUDY_DIR/work/schemachanges-`basename $2 .json`-to-`basename $3 .json`.xlsx"
-/opt/datafax/PHRI/python27 $DATAFAX_DIR/PHRI/schemadiff.py --original $STUDY_DIR/dfschema/$2 --current $STUDY_DIR/dfschema/$3 --xlsx $OUTFILE
+/opt/DFtoolkit/bin/schemadiff --original $STUDY_DIR/dfschema/$2 --current $STUDY_DIR/dfschema/$3 --xlsx $OUTFILE
 echo "Output file is: $OUTFILE"
