@@ -865,9 +865,9 @@ class DFpdf(object):
             table.setStyle(tablestyle)
             bookmark = '{0}_{1}_{2}_{3}_audit'.format(pid_num, visit_num, plate_num, field.number)
             if title:
-                self.content.append(KeepTogether([title, Paragraph('<para><a name="{0}"/>{1}. {2}<para>'.format(bookmark, field.number, description), styleA), table]))
+                self.content.append(KeepTogether([title, Paragraph('<para><a name="{0}"/>{1}. {2}</para>'.format(bookmark, field.number, description), styleA), table]))
             else:
-                self.content.append(KeepTogether([Paragraph('<para><a name="{0}"/>{1}. {2}<para>'.format(bookmark, field.number, description), styleA), table]))
+                self.content.append(KeepTogether([Paragraph('<para><a name="{0}"/>{1}. {2}</para>'.format(bookmark, field.number, description), styleA), table]))
 
             title = None
 
