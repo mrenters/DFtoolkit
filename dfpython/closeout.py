@@ -1100,7 +1100,7 @@ class DFpdf(object):
         self.outputCRFImage(datarec)
         raster = datarec[4:16]
         if self.include_attached_images.contains(plate_num) and \
-                raster[4:5] == '/':
+                raster[4:5] == '/' and raster != '0000/0000000':
             rasters = [(raster, True)]
             if self.include_secondaries:
                 rasters.extend([(r, False) for r in \
