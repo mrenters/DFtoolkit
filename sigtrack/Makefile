@@ -1,4 +1,4 @@
-PROG=	../dist/PHRI/sigtrack
+PROG=	../dist/bin/sigtrack
 HDRS=	centers.h esig.h exclusions.h queue.h rangelist.h stringlist.h tree.h
 OBJS=	centers.o db.o exclusions.o grammar.tab.o lex.yy.o esig.o main.o \
 	stringlist.o rangelist.o xls.o

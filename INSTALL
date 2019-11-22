@@ -15,13 +15,16 @@ You'll need the following Python modules installed:
 	reportlab (http://www.reportlab.com/)
 	pdfrw (https://github.com/pmaupin/pdfrw)
 	xlsxwriter (http://xlsxwriter.readthedocs.io/)
+	pyinstaller (https://pyinstaller.readthedocs.io/en/stable)
 
-These can be installed using:
+These can be installed either system-wide or in a Python virtual environment
+using :
 
 	pip install pillow
 	pip install reportlab
 	pip install pdfrw
 	pip install xlsxwriter
+	pip install pyinstaller
 
 (Make sure you use the python 2.7 version of pip)
 
@@ -33,14 +36,33 @@ Build the software by typing:
 
 	make
 
-This will create a dist directory with modules, PHRI and reports subdirectories.
-Install the 'datafax' python module by typing:
+This will create a dist directory with modules, packages, bin and reports
+subdirectories.
 
-	pip install dist/modules/datafax-1.0.2.tar.gz
+Copy the contents of dist into /opt/DFtoolkit
 
-Copy the contents of the dist/PHRI folder to /opt/datafax/PHRI and the contents
-of dist/reports to /opt/datafax/reports
+Copy the contents of dist/reports to /opt/datafax/reports
 
+
+Binary Installation
+===================
+If you will be installing a pre-built distribution, perform the following
+steps:
+
+1) mkdir -p /opt/DFtoolkit
+2) cd /opt/DFtoolkit
+3) tar zxf DFtoolkit-X.X.X.tgz
+	where X.X.X corresponds to the version number of the package.
+
+
+Installing the DataFax Python Module
+====================================
+If you wish to develop your own tools, install the 'datafax' python module
+by typing:
+
+	pip install /opt/DFtoolkit/modules/datafax-X.X.X.tar.gz
+
+where X.X.X corresponds to the version number of the package.
 
 Martin Renters
 martin@teckelworks.com
