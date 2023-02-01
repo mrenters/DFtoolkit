@@ -1,4 +1,4 @@
-# THIS REPOSITORY IS OBSOLETE. USE DFtoolkit3
+# THIS REPOSITORY IS OBSOLETE. USE https://github.com/mrenters/DFtoolkit3
 
 # DFtoolkit
 This repository contains a series of tools for use with the DataFax Clinical
